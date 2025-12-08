@@ -7,18 +7,17 @@ from bidi.algorithm import get_display
 import os
 import numpy_financial as npf
 import folium
-from folium.plugins import Draw
+from folium.plugins import Draw, Fullscreen
 from streamlit_folium import st_folium
 from shapely.geometry import shape
 import math
 
 # --- إعدادات الصفحة ---
-st.set_page_config(page_title="Solar Engineering Tool", layout="wide", page_icon="🛰️")
+st.set_page_config(page_title="Solar Engineering Pro", layout="wide", page_icon="🛰️")
 
 # --- دالة حساب المساحة ---
 def calculate_area_m2(geojson_geometry):
-    if geojson_geometry is None:
-        return 0.0
+    if geojson_geometry is None: return 0.0
     geom = shape(geojson_geometry)
     center_lat = geom.centroid.y
     lat_to_m = 111132.92
@@ -28,8 +27,7 @@ def calculate_area_m2(geojson_geometry):
         coords = list(geom.exterior.coords)
         for x, y in coords:
             new_coords.append((x * lon_to_m, y * lat_to_m))
-    else:
-        return 0.0
+    else: return 0.0
     from shapely.geometry import Polygon
     poly_m = Polygon(new_coords)
     return poly_m.area
@@ -37,16 +35,16 @@ def calculate_area_m2(geojson_geometry):
 # --- النصوص والترجمة ---
 translations = {
     "English": {
-        "title": "⚡ Solar Sales & Engineering Tool (Satellite)",
+        "title": "⚡ Solar Sales & Engineering Tool (Google Maps)",
         "sidebar_title": "Client Data Entry",
-        "map_title": "📍 Site Survey (Satellite View)",
+        "map_title": "📍 Site Survey (High-Res Google Map)",
         "coords": "Selected Coordinates",
-        "area_calc": "Calculated Roof Area",
+        "area_calc": "Net Roof Area (Obstacles Excluded)",
         "input_mode": "Input Method",
         "mode_avg": "Simple Average Bill",
         "mode_12m": "Detailed 12-Month Bills",
         "bill_avg": "Average Monthly Bill (SAR)",
-        "area": "Roof Area (m²)",
+        "area": "Net Usable Area (m²)",
         "cost_per_kw": "System Cost/kW (SAR)",
         "city": "Region / City",
         "price_kwh": "Tariff Rate (SAR/kWh)",
@@ -75,16 +73,16 @@ translations = {
         "rec_title": "System Specifications"
     },
     "العربية": {
-        "title": "⚡ نظام مبيعات وهندسة الطاقة الشمسية (أقمار صناعية)",
+        "title": "⚡ نظام مبيعات وهندسة الطاقة الشمسية (خرائط جوجل)",
         "sidebar_title": "إدخال بيانات العميل",
-        "map_title": "📍 معاينة الموقع (صور فضائية)",
+        "map_title": "📍 معاينة الموقع (دقة عالية)",
         "coords": "الإحداثيات المختارة",
-        "area_calc": "مساحة الرسم المحسوبة",
+        "area_calc": "صافي المساحة (بعد استثناء العوائق)",
         "input_mode": "طريقة الإدخال",
         "mode_avg": "فاتورة متوسطة (تقريبي)",
         "mode_12m": "فواتير 12 شهر (دقيق)",
         "bill_avg": "متوسط الفاتورة (ريال)",
-        "area": "المساحة المتاحة (م²)",
+        "area": "المساحة الصافية (م²)",
         "cost_per_kw": "تكلفة الكيلوواط (ريال)",
         "city": "المنطقة / المدينة",
         "price_kwh": "سعر الشريحة (ريال/kWh)",
@@ -122,7 +120,7 @@ with st.sidebar:
     
     st.header(t["sidebar_title"])
 
-    # --- خريطة الأقمار الصناعية (Satellite Map) ---
+    # --- إعداد الخريطة المحترفة (Google Maps) ---
     if 'calculated_area' not in st.session_state:
         st.session_state['calculated_area'] = 0.0
     if 'coords' not in st.session_state:
@@ -131,28 +129,46 @@ with st.sidebar:
     with st.expander(t["map_title"], expanded=True):
         default_location = [24.7136, 46.6753] # الرياض
         
-        # استخدام Esri World Imagery (صور أقمار صناعية عالية الدقة)
-        m = folium.Map(location=default_location, zoom_start=18, max_zoom=21)
+        # استخدام بلاطات خرائط جوجل (Google Hybrid) للدقة العالية
+        # ملاحظة: هذا الرابط يستخدم سيرفرات جوجل العامة
+        google_tiles = 'http://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
         
+        m = folium.Map(location=default_location, zoom_start=18, max_zoom=22, tiles=None)
         folium.TileLayer(
-            tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            attr='Esri',
-            name='Esri Satellite',
+            tiles=google_tiles,
+            attr='Google',
+            name='Google Satellite',
             overlay=False,
             control=True
         ).add_to(m)
         
-        # إضافة خيار التبديل لأسماء الشوارع (Hybrid) إن أمكن أو الاكتفاء بالساتلايت
+        # إضافة زر ملء الشاشة (Full Screen)
+        Fullscreen(
+            position='topright',
+            title='Expand me',
+            title_cancel='Exit me',
+            force_separate_button=True
+        ).add_to(m)
         
+        # أدوات الرسم (إزالة المربع والمستطيل لإجبار استخدام المضلع الدقيق)
         draw = Draw(
             export=False,
             position='topleft',
-            draw_options={'polyline': False, 'circle': False, 'marker': True, 'circlemarker': False, 'polygon': True},
+            draw_options={
+                'polyline': False,
+                'rectangle': False, # إلغاء المربع لأنه لا يميل
+                'circle': False,
+                'marker': True,
+                'circlemarker': False,
+                'polygon': True # هذا هو المهم (المضلع)
+            },
             edit_options={'edit': True}
         )
         draw.add_to(m)
         
-        map_output = st_folium(m, height=400, width=280)
+        st.info("💡 نصيحة: استخدم أيقونة 'المضلع' (شكل خماسي) لرسم حدود السطح بدقة وتجنب بيت الدرج.")
+        
+        map_output = st_folium(m, height=450, width=300)
         
         drawn_area = 0.0
         if map_output and 'last_active_drawing' in map_output and map_output['last_active_drawing']:
@@ -166,7 +182,6 @@ with st.sidebar:
             elif geometry['type'] == 'Point':
                 coords = geometry['coordinates']
                 st.session_state['coords'] = (coords[1], coords[0])
-                st.info(f"{t['coords']}: {coords[1]:.4f}, {coords[0]:.4f}")
 
     st.divider()
     
@@ -202,7 +217,7 @@ with st.sidebar:
     if st.session_state['calculated_area'] > 0:
         default_area = st.session_state['calculated_area']
         
-    roof_area = st.number_input(t["area"], min_value=10.0, value=default_area, help="يتم تحديثها تلقائياً عند الرسم على الخريطة")
+    roof_area = st.number_input(t["area"], min_value=10.0, value=default_area, help="تتحدث تلقائياً من الخريطة")
     
     price_per_kwh = st.number_input(t["price_kwh"], min_value=0.01, value=0.18, format="%.3f")
     cost_per_kw = st.number_input(t["cost_per_kw"], min_value=1000.0, value=3000.0)
@@ -420,4 +435,4 @@ if run_calc:
     st.download_button(label=t["download_pdf"], data=pdf_data, file_name="Solar_Feasibility_Report.pdf", mime="application/pdf", type="primary")
 
 else:
-    st.info("System Ready. Use Satellite Map to draw roof area.")
+    st.info("System Ready. Use Satellite Map (Polygon Tool) to measure roof.")
