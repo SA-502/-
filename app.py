@@ -15,20 +15,30 @@ import math
 # ==========================================
 # 🏷️ إعدادات الشركة
 # ==========================================
-PAGE_TITLE = "نظام الطاقة الشمسية (شامل الضريبة)"
+PAGE_TITLE = "نظام الطاقة الشمسية (SEC Exact)"
 COMPANY_NAME = "شركة حلول الطاقة المتقدمة"
-REPORT_TITLE = "عرض فني ومالي (شامل ضريبة 15%)"
+REPORT_TITLE = "عرض فني ومالي - SEC Tariff Logic"
 # ==========================================
 
-st.set_page_config(page_title=PAGE_TITLE, layout="wide", page_icon="🇸🇦")
+st.set_page_config(page_title=PAGE_TITLE, layout="wide", page_icon="⚡")
 
-# --- ثوابت التعرفة السعودية (شاملة الضريبة 15%) ---
-# الشريحة 1: 0.18 * 1.15 = 0.207
-TIER1_RATE = 0.207
-# الشريحة 2: 0.30 * 1.15 = 0.345
-TIER2_RATE = 0.345
-# حد الشريحة الأولى بالريال (6000 * 0.207)
-TIER1_LIMIT_SAR = 6000 * TIER1_RATE # 1242 ريال
+# --- ثوابت التعرفة السعودية (SEC) ---
+# الأسعار بدون ضريبة
+BASE_RATE_T1 = 0.18
+BASE_RATE_T2 = 0.30
+METER_FEE_BASE = 10.0 # رسوم العداد
+
+# الضريبة
+VAT = 0.15
+
+# الأسعار شاملة الضريبة (للحساب السريع)
+RATE_T1_VAT = BASE_RATE_T1 * (1 + VAT) # 0.207
+RATE_T2_VAT = BASE_RATE_T2 * (1 + VAT) # 0.345
+METER_FEE_VAT = METER_FEE_BASE * (1 + VAT) # 11.5
+
+# حد الشريحة الأولى (6000 واط)
+TIER1_LIMIT_KWH = 6000
+TIER1_COST_VAT = TIER1_LIMIT_KWH * RATE_T1_VAT # 1242 ريال تكلفة أول 6000
 
 # --- دوال مساعدة ---
 def fmt(num):
@@ -50,22 +60,32 @@ def calculate_area_m2(geojson_geometry):
     poly_m = Polygon(new_coords)
     return poly_m.area
 
-# 🔥 محرك شرائح الكهرباء (محدث مع الضريبة) 🔥
-def get_kwh_from_bill(bill_sar):
-    # إذا الفاتورة أقل من 1242 ريال (شامل الضريبة)، فهي في الشريحة الأولى فقط
-    if bill_sar <= TIER1_LIMIT_SAR:
-        return bill_sar / TIER1_RATE
+# 🔥 محرك العكسي: من فاتورة (ريال) إلى استهلاك (كيلوواط) 🔥
+def get_kwh_from_bill_exact(bill_sar_with_vat):
+    # 1. خصم رسوم العداد أولاً
+    bill_energy_only = bill_sar_with_vat - METER_FEE_VAT
+    
+    if bill_energy_only <= 0: return 0
+    
+    # 2. حساب الكيلوواط بناءً على الشرائح
+    if bill_energy_only <= TIER1_COST_VAT:
+        # العميل في الشريحة الأولى فقط
+        return bill_energy_only / RATE_T1_VAT
     else:
-        # ما زاد عن 1242 يحسب على الشريحة الثانية
-        remainder = bill_sar - TIER1_LIMIT_SAR
-        return 6000 + (remainder / TIER2_RATE)
+        # العميل دخل الشريحة الثانية
+        remainder_money = bill_energy_only - TIER1_COST_VAT
+        kwh_tier2 = remainder_money / RATE_T2_VAT
+        return TIER1_LIMIT_KWH + kwh_tier2
 
-def calculate_bill_sar(kwh):
-    # حساب الفاتورة من الاستهلاك (شامل الضريبة)
-    if kwh <= 6000:
-        return kwh * TIER1_RATE
+# 🔥 محرك الأمامي: من استهلاك (كيلوواط) إلى فاتورة (ريال) 🔥
+def calculate_bill_sar_exact(kwh):
+    energy_cost = 0
+    if kwh <= TIER1_LIMIT_KWH:
+        energy_cost = kwh * RATE_T1_VAT
     else:
-        return (6000 * TIER1_RATE) + ((kwh - 6000) * TIER2_RATE)
+        energy_cost = (TIER1_LIMIT_KWH * RATE_T1_VAT) + ((kwh - TIER1_LIMIT_KWH) * RATE_T2_VAT)
+    
+    return energy_cost + METER_FEE_VAT # إعادة إضافة رسوم العداد
 
 # --- النصوص ---
 translations = {
@@ -78,7 +98,7 @@ translations = {
         "breakdown": "Cost Breakdown", "ai_opinion": "🤖 Smart Analysis", "download_pdf": "Download PDF", 
         "chart_title": "Consumption vs Production", "chart_cashflow": "Cash Flow", "currency": "SAR", 
         "panels_count": "Panels", "finance_years": "Years", "interest": "Interest %", "monthly_inst": "Installment",
-        "vat_note": "Calculations include 15% VAT"
+        "vat_note": "Calculations include 15% VAT & Meter Fee"
     },
     "العربية": {
         "sidebar_title": "مدخلات المشروع", "map_title": "📍 معاينة الموقع (أقمار صناعية)", "area_calc": "المساحة المرسومة (م²)",
@@ -89,7 +109,7 @@ translations = {
         "breakdown": "تفاصيل التكلفة", "ai_opinion": "🤖 رأي المستشار الذكي", "download_pdf": "تحميل التقرير الرسمي (PDF)", 
         "chart_title": "تحليل الأحمال مقابل الإنتاج", "chart_cashflow": "تحليل التدفق النقدي", "currency": "ر.س", 
         "panels_count": "لوح", "finance_years": "مدة التمويل (سنوات)", "interest": "نسبة الفائدة (%)", "monthly_inst": "القسط الشهري",
-        "vat_note": "* الحسابات تشمل ضريبة القيمة المضافة 15% (التعرفة: 0.207 و 0.345)"
+        "vat_note": "* دقة عالية: خصم رسوم العداد (11.5 ريال) وحساب الضريبة 15%."
     }
 }
 
@@ -136,18 +156,25 @@ with st.sidebar:
         cols = st.columns(3)
         for i, m in enumerate(months_display):
             with cols[i%3]:
-                # قيم افتراضية: صيف 2000 شتاء 800 (شامل الضريبة)
                 def_val = 2000.0 if i in [5,6,7,8] else 800.0
                 val = st.number_input(m, value=def_val, key=i)
                 monthly_bills_sar.append(val)
-                
-    else: # Mode Average
+    else: 
         avg_val = st.number_input(t["bill_avg"], value=1500.0, step=100.0)
-        factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7] # Residential Curve
+        factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7]
         avg_factor = sum(factors) / 12
         monthly_bills_sar = [avg_val * (f / avg_factor) for f in factors]
 
-    # 3. المواصفات الفنية
+    # --- لوحة التحقق من الحسابات (Debug Panel) ---
+    with st.expander("🔍 تحقق من دقة الحسابات (Debug)", expanded=False):
+        st.caption("هنا نوضح كيف تم تحويل الريال إلى كيلوواط:")
+        test_bill = monthly_bills_sar[0]
+        test_kwh = get_kwh_from_bill_exact(test_bill)
+        st.write(f"مثال (يناير): فاتورة {test_bill:,.0f} ريال")
+        st.write(f"- خصم رسوم العداد: {test_bill} - 11.5 = {test_bill-11.5:.1f} ريال")
+        st.write(f"- تحويل إلى كيلوواط: {int(test_kwh):,} kWh")
+
+    # 3. المواصفات
     saudi_cities = {"الرياض":5.8, "جدة":6.0, "الدمام":5.6, "مكة":6.2, "المدينة":6.3, "أبها":5.9, "تبوك":6.1, "حائل":6.0, "جازان":5.9, "القصيم":5.8}
     location_key = st.selectbox(t["city"], list(saudi_cities.keys()))
     sun_hours = saudi_cities[location_key]
@@ -155,12 +182,7 @@ with st.sidebar:
     default_area = st.session_state['calculated_area'] if st.session_state['calculated_area'] > 0 else 300.0
     roof_area = st.number_input(t["area"], value=float(default_area))
     
-    panel_options = {
-        "Jinko Tiger Pro 545W": 545,
-        "Longi Hi-MO 5 550W": 550,
-        "Trina Vertex 550W": 550,
-        "Generic 450W": 450
-    }
+    panel_options = { "Jinko Tiger Pro 545W": 545, "Longi Hi-MO 5 550W": 550, "Trina Vertex 550W": 550, "Generic 450W": 450 }
     panel_choice = st.selectbox(t["panel_type"], list(panel_options.keys()))
     panel_wattage = panel_options[panel_choice]
     
@@ -183,15 +205,15 @@ with st.sidebar:
             finance_years = st.slider(t["finance_years"], 1, 10, 5)
             interest_rate = st.number_input(t["interest"], value=3.5)
 
-    st.caption(t["vat_note"]) # تنبيه الضريبة
+    st.caption(t["vat_note"])
     run_calc = st.button(t["calculate"], type="primary")
 
 # --- المحرك الرئيسي ---
 st.title(PAGE_TITLE)
 
 if run_calc:
-    # 1. تحليل الأحمال (باستخدام دالة الضريبة الجديدة)
-    cons_kwh = [get_kwh_from_bill(b) for b in monthly_bills_sar]
+    # 1. تحليل الأحمال (دقيق جداً)
+    cons_kwh = [get_kwh_from_bill_exact(b) for b in monthly_bills_sar]
     total_cons_kwh = sum(cons_kwh)
     daily_avg_kwh = (total_cons_kwh/12)/30
     
@@ -221,13 +243,11 @@ if run_calc:
     if want_finance:
         r = (interest_rate / 100) / 12
         n = finance_years * 12
-        if r > 0:
-            monthly_installment = total_invest * (r * (1 + r)**n) / ((1 + r)**n - 1)
-        else:
-            monthly_installment = total_invest / n
+        if r > 0: monthly_installment = total_invest * (r * (1 + r)**n) / ((1 + r)**n - 1)
+        else: monthly_installment = total_invest / n
         total_finance_cost = monthly_installment * n
 
-    # 2. المحاكاة (Tiered Savings with VAT)
+    # 2. المحاكاة
     prod_curve_kwh = []
     total_prod_year = 0
     mon_prod_base = actual_sys * sun_hours * 30 * 0.80 
@@ -238,17 +258,19 @@ if run_calc:
         prod_curve_kwh.append(monthly_gen)
         total_prod_year += monthly_gen
 
-    # حساب التوفير المالي (الفرق بين الفاتورة القديمة والجديدة)
+    # حساب التوفير المالي (الفرق في الفاتورة النهائية)
     total_bill_before = sum(monthly_bills_sar)
     total_bill_after = 0
     
     for i in range(12):
+        # الاستهلاك الجديد = القديم - الطاقة الشمسية
+        # إذا كان بالسالب (تصدير)، نحسبه صفر لأن العدادات الحديثة لا ترجع للخلف (صافي قياس يحتاج إجراءات أخرى، نفترض استهلاك ذاتي)
         net_cons = max(0, cons_kwh[i] - prod_curve_kwh[i])
-        total_bill_after += calculate_bill_sar(net_cons)
+        total_bill_after += calculate_bill_sar_exact(net_cons)
         
     annual_savings_y1 = total_bill_before - total_bill_after
     
-    # التحليل المالي (25 سنة)
+    # التحليل المالي
     years_range = range(1, 26)
     cash_flow = []
     cumulative_cash_flow = []
@@ -267,7 +289,6 @@ if run_calc:
         current_savings_sim *= (1 + inflation_rate)
 
     roi = ((sum(cash_flow) / (total_finance_cost if want_finance else total_invest)) * 100)
-    
     payback_years = 0
     for i, val in enumerate(cumulative_cash_flow):
         if val >= 0:
@@ -283,7 +304,7 @@ if run_calc:
     c1.metric("حجم النظام (kWp)", f"{actual_sys:.2f}")
     c2.metric("عدد الألواح", f"{panels}", f"{panel_choice.split()[0]}")
     c3.metric("التكلفة (كاش)", f"{fmt(total_invest)} {curr}")
-    c4.metric("التوفير السنوي (شامل الضريبة)", f"{fmt(annual_savings_y1)} {curr}", help="تم احتساب التوفير بناءً على التعرفة الجديدة شاملة الضريبة")
+    c4.metric("التوفير السنوي (فعلي)", f"{fmt(annual_savings_y1)} {curr}", help="تم حساب الشرائح بدقة عالية")
     
     if want_finance:
         st.markdown("---")
@@ -305,13 +326,15 @@ if run_calc:
     st.markdown("---")
     st.subheader(t["ai_opinion"])
     
+    tier2_usage = any(k > 6000 for k in cons_kwh)
+    
     advice = ""
-    if want_finance and monthly_installment < (annual_savings_y1/12):
-        advice = f"💎 **صفقة ذهبية:** القسط البنكي ({fmt(monthly_installment)}) أقل من التوفير الشهري ({fmt(annual_savings_y1/12)}). العميل يربح كاش شهرياً دون أن يدفع ريالاً مقدماً!"
-    elif roi > 200:
-        advice = f"🚀 **مشروع ممتاز (A+):** التوفير عالي جداً بفضل الوصول للشريحة الثانية (34 هللة). استرداد سريع خلال {payback_years} سنوات."
+    if tier2_usage:
+        advice = f"🚀 **فرصة ممتازة (A+):** العميل يستهلك في الشريحة الثانية (34 هللة)، مما يجعل التوفير مضاعفاً! الاسترداد سريع ({payback_years} سنوات)."
+    elif want_finance and monthly_installment < (annual_savings_y1/12):
+        advice = f"💎 **تدفق إيجابي:** القسط البنكي أقل من التوفير، العميل يربح كاش فوراً."
     else:
-        advice = f"✅ **مشروع مجدي:** استثمار آمن يحمي العميل من ارتفاع الفواتير وضريبة القيمة المضافة."
+        advice = f"✅ **مشروع جيد:** النظام يغطي الاستهلاك بسعر الشريحة الأولى (20 هللة). استثمار آمن طويل الأمد."
         
     st.info(advice, icon="🤖")
 
@@ -367,7 +390,7 @@ if run_calc:
         pdf.ln(5)
 
         pdf.set_font_size(14)
-        pdf.cell(190, 10, txt=txt("2. التحليل المالي (شامل الضريبة 15%)"), ln=True, fill=True, align='R')
+        pdf.cell(190, 10, txt=txt("2. التحليل المالي (شامل 15% ضريبة)"), ln=True, fill=True, align='R')
         pdf.set_font_size(12)
         row("إجمالي التكلفة (CAPEX)", f"{fmt(total_invest)} {curr}")
         row("التوفير السنوي (Year 1)", f"{fmt(annual_savings_y1)} {curr}")
