@@ -88,12 +88,11 @@ with st.sidebar:
     t = translations[language]
     curr = t["currency"]
     
-    # --- قسم الشعار الجديد ---
+    # --- قسم الشعار الجديد (المصحح) ---
     uploaded_logo = st.file_uploader(t["logo_upload"], type=['png', 'jpg', 'jpeg'])
     if uploaded_logo is not None:
         st.image(uploaded_logo, width=150)
     else:
-        # صورة افتراضية في حال عدم رفع شعار
         st.image("https://cdn-icons-png.flaticon.com/512/861/861059.png", width=80)
         
     st.markdown("### Saudi Solar Tool")
@@ -132,7 +131,7 @@ with st.sidebar:
         degradation_rate = 0.005 # ثابت 0.5%
 
 
-# --- المحرك الرئيسي (تمت إزالة زر run_calc ليصبح تفاعلياً دائماً) ---
+# --- المحرك الرئيسي ---
 
 # الحسابات
 monthly_consumption_kwh = monthly_bill / price_per_kwh if price_per_kwh > 0 else 0
@@ -232,16 +231,23 @@ with tab3:
                 return get_display(arabic_reshaper.reshape(text))
             return text
 
-        # الترويسة مع الشعار (إذا تم رفعه)
         pdf.set_fill_color(245, 245, 245)
         pdf.rect(0, 0, 210, 40, 'F')
         
-        # إضافة الشعار للPDF إذا وجد
+        # --- حل المشكلة: التأكد من صيغة الصورة ---
         if uploaded_logo is not None:
-            # حفظ الشعار مؤقتاً
-            with open("temp_logo.png", "wb") as f:
+            # نأخذ الامتداد الحقيقي للملف (png, jpg, jpeg)
+            file_ext = os.path.splitext(uploaded_logo.name)[1].lower()
+            if file_ext not in ['.png', '.jpg', '.jpeg']:
+                file_ext = '.png' # افتراضي
+                
+            logo_name = f"temp_logo{file_ext}"
+            
+            with open(logo_name, "wb") as f:
                 f.write(uploaded_logo.getbuffer())
-            pdf.image("temp_logo.png", 10, 5, 30)
+                
+            # الآن PDF سيفهم الصورة لأن الامتداد صحيح
+            pdf.image(logo_name, 10, 5, 30)
             
         pdf.set_xy(0, 10)
         pdf.set_font_size(22)
