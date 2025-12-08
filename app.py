@@ -372,7 +372,7 @@ if run_calc:
             row("عدد الألواح", f"{panels}")
             row("إجمالي الاستهلاك السنوي", f"{fmt(total_cons)} kWh")
             row("الإنتاج المتوقع (السنة 1)", f"{fmt(total_prod_year)} kWh")
-            pdf.ln(5)
+            pdf.add_font('Amiri', '', font_path)
 
             # 3. Financial Table
             pdf.set_font('Amiri', '', 14)
@@ -420,3 +420,4 @@ if run_calc:
 
 else:
     st.info("النظام جاهز. ابدأ بتحديد الموقع على الخريطة.")
+
