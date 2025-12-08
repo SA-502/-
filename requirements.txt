@@ -8,3 +8,4 @@ numpy-financial
 folium
 streamlit-folium
 shapely
+requests
