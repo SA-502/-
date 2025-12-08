@@ -15,12 +15,16 @@ import math
 # ==========================================
 # 🏷️ إعدادات الشركة
 # ==========================================
-PAGE_TITLE = "النظام الهندسي للطاقة الشمسية"
+PAGE_TITLE = "النظام الشامل للطاقة الشمسية"
 COMPANY_NAME = "شركة حلول الطاقة المتقدمة"
-REPORT_TITLE = "دراسة جدوى هندسية ومالية - Engineering Proposal"
+REPORT_TITLE = "عرض فني ومالي - Technical & Financial Proposal"
 # ==========================================
 
-st.set_page_config(page_title=PAGE_TITLE, layout="wide", page_icon="⚡")
+st.set_page_config(page_title=PAGE_TITLE, layout="wide", page_icon="☀️")
+
+# --- دالة تنسيق الأرقام (بدون كسور) ---
+def fmt(num):
+    return f"{int(num):,}" # 12,500
 
 # --- دالة حساب المساحة ---
 def calculate_area_m2(geojson_geometry):
@@ -42,24 +46,29 @@ def calculate_area_m2(geojson_geometry):
 # --- النصوص ---
 translations = {
     "English": {
-        "sidebar_title": "Engineering Inputs", "map_title": "📍 Satellite Site Survey", "area_calc": "Net Area (m²)",
-        "input_mode": "Load Analysis Method", "mode_seasonal": "Seasonal Simulation (Recommended)",
-        "mode_12m": "12-Month Bills", "mode_avg": "Simple Average", "bill_avg": "Avg Bill (SAR)",
-        "city": "Location", "battery_section": "🔋 Storage System", "add_battery": "Add Batteries?",
-        "battery_hours": "Autonomy Hours", "calculate": "Run Engineering Analysis", "results": "Technical Analysis",
-        "financials": "Financial KPIs", "breakdown": "CAPEX Breakdown", "ai_opinion": "🤖 Expert Analysis",
-        "download_pdf": "Download Engineering Report", "lcoe": "LCOE (SAR/kWh)", "autonomy": "Real Autonomy",
-        "heat_loss": "Heat Loss Factor Applied"
+        "sidebar_title": "Project Inputs", "map_title": "📍 High-Res Site Survey", "area_calc": "Drawn Area (m²)",
+        "input_mode": "Calculation Method", "mode_avg": "Simple Average", "mode_seasonal": "Seasonal Simulation",
+        "mode_12m": "12-Month Bills", "consumer_type": "Consumer Type", "res": "Residential",
+        "com": "Commercial", "bill_avg": "Avg Monthly Bill (SAR)", "area": "Usable Roof Area (m²)",
+        "cost_per_kw": "System Cost/kW (SAR)", "city": "City", "battery_section": "🔋 Battery Storage", 
+        "add_battery": "Add Batteries?", "battery_hours": "Backup Hours", "calculate": "Run Analysis", 
+        "results": "Feasibility Analysis", "breakdown": "Cost Breakdown", "ai_opinion": "🤖 AI Analysis & Definitions", 
+        "download_pdf": "Download Report", "chart_title": "Load vs Generation", "chart_cashflow": "Cash Flow", 
+        "currency": "SAR", "panels_count": "Panels", "coords": "Coordinates", "lcoe_help": "Cost to produce 1 kWh over 25 years",
+        "npv_help": "Total profit value in today's money"
     },
     "العربية": {
-        "sidebar_title": "المدخلات الهندسية", "map_title": "📍 مسح الموقع (أقمار صناعية)", "area_calc": "المساحة الصافية (م²)",
-        "input_mode": "طريقة تحليل الأحمال", "mode_seasonal": "محاكاة موسمية (موصى به)",
-        "mode_12m": "إدخال 12 فاتورة", "mode_avg": "متوسط بسيط", "bill_avg": "متوسط الفاتورة (ريال)",
-        "city": "المدينة والمناخ", "battery_section": "🔋 نظام التخزين", "add_battery": "إضافة بطاريات؟",
-        "battery_hours": "ساعات التشغيل الاحتياطي", "calculate": "بدء التحليل الهندسي", "results": "النتائج الفنية",
-        "financials": "المؤشرات المالية", "breakdown": "تفاصيل التكلفة الرأسمالية", "ai_opinion": "🤖 رأي الخبير الرقمي",
-        "download_pdf": "تحميل التقرير الهندسي (PDF)", "lcoe": "سعر التكلفة المستوي (LCOE)", "autonomy": "الاستقلالية الفعلية",
-        "heat_loss": "تم تطبيق معامل الفقد الحراري"
+        "sidebar_title": "مدخلات المشروع", "map_title": "📍 معاينة الموقع (أقمار صناعية)", "area_calc": "المساحة المرسومة (م²)",
+        "input_mode": "طريقة الحساب", "mode_avg": "متوسط بسيط (سريع)", "mode_seasonal": "محاكاة موسمية (دقيق)",
+        "mode_12m": "إدخال 12 فاتورة (فعلي)", "consumer_type": "نوع النشاط", "res": "سكني (تكييف عالي)",
+        "com": "تجاري (متوازن)", "bill_avg": "متوسط الفاتورة (ريال)", "area": "مساحة السطح (م²)",
+        "cost_per_kw": "تكلفة الكيلوواط (ريال)", "city": "المدينة", "battery_section": "🔋 نظام البطاريات", 
+        "add_battery": "إضافة بطاريات؟", "battery_hours": "ساعات التشغيل الليلي", "calculate": "بدء التحليل الشامل", 
+        "results": "نتائج الدراسة", "breakdown": "تفاصيل التكلفة", "ai_opinion": "🤖 رأي المستشار الذكي (مع الشرح)", 
+        "download_pdf": "تحميل التقرير الرسمي (PDF)", "chart_title": "تحليل الأحمال مقابل الإنتاج", 
+        "chart_cashflow": "تحليل التدفق النقدي", "currency": "ر.س", "panels_count": "لوح", "coords": "الإحداثيات",
+        "lcoe_help": "LCOE: هي التكلفة الفعلية عليك لإنتاج كيلوواط واحد من الطاقة الشمسية طوال عمر المشروع.",
+        "npv_help": "NPV: صافي القيمة الحالية، وهو مقياس للربح الحقيقي بعد خصم التضخم وقيمة المال الزمنية."
     }
 }
 
@@ -67,6 +76,7 @@ translations = {
 with st.sidebar:
     language = st.radio("Language / اللغة", ["العربية", "English"])
     t = translations[language]
+    curr = t["currency"]
     
     st.header(t["sidebar_title"])
 
@@ -82,15 +92,14 @@ with st.sidebar:
         Fullscreen().add_to(m)
         draw = Draw(export=False, position='topleft', draw_options={'polyline':False,'rectangle':False,'circle':False,'marker':True,'circlemarker':False,'polygon':True}, edit_options={'edit': True})
         draw.add_to(m)
-        
-        map_output = st_folium(m, height=300, width=280)
+        map_output = st_folium(m, height=350, width=300)
         
         if map_output and 'last_active_drawing' in map_output and map_output['last_active_drawing']:
             drawing = map_output['last_active_drawing']
             if drawing['geometry']['type'] == 'Polygon':
                 drawn_area = calculate_area_m2(drawing['geometry'])
                 st.session_state['calculated_area'] = drawn_area
-                st.success(f"{t['area_calc']}: {drawn_area:.2f}")
+                st.success(f"{t['area_calc']}: {int(drawn_area)} m²")
             elif drawing['geometry']['type'] == 'Point':
                 c = drawing['geometry']['coordinates']
                 st.session_state['coords'] = (c[1], c[0])
@@ -103,8 +112,8 @@ with st.sidebar:
     
     if input_method == t["mode_seasonal"]:
         avg_val = st.number_input(t["bill_avg"], value=1500.0, step=100.0)
-        # نمط سكني افتراضي (صيف عالي)
-        factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7]
+        cons_type = st.selectbox(t["consumer_type"], [t["res"], t["com"]])
+        factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7] if cons_type == t["res"] else [0.9, 0.9, 1.0, 1.0, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 0.9, 0.9]
         avg_factor = sum(factors) / 12
         monthly_bills = [avg_val * (f / avg_factor) for f in factors]
         
@@ -127,10 +136,10 @@ with st.sidebar:
     default_area = st.session_state['calculated_area'] if st.session_state['calculated_area'] > 0 else 300.0
     roof_area = st.number_input("المساحة (m²)", value=float(default_area))
     
-    price_kwh = st.number_input("تعرفة الكهرباء (SAR)", value=0.18, format="%.3f")
+    price_kwh = st.number_input("سعر الكيلوواط", value=0.18, format="%.3f")
     cost_kw = st.number_input("سعر النظام (SAR/kW)", value=3000.0)
     
-    # 4. البطاريات
+    # 4. البطاريات والتقنية
     st.markdown("---")
     want_battery = st.checkbox(t["add_battery"])
     batt_cost_unit = 1500.0
@@ -139,18 +148,24 @@ with st.sidebar:
         batt_hours = st.slider(t["battery_hours"], 1, 12, 4)
         batt_cost_unit = st.number_input("سعر البطارية (SAR/kWh)", value=1500.0)
     
+    # إعدادات مخفية (للمختصين) مع شروحات
+    with st.expander("⚙️ إعدادات متقدمة"):
+        inflation_rate = st.slider("التضخم / Inflation", 0.0, 10.0, 3.0, 0.1) / 100
+        st.caption("معدل زيادة أسعار الكهرباء سنوياً.")
+        degradation_rate = 0.005
+        discount_rate = 0.05
+    
     run_calc = st.button(t["calculate"], type="primary")
 
 # --- المحرك الرئيسي ---
 st.title(PAGE_TITLE)
 
 if run_calc:
-    # 1. تحليل الأحمال
+    # 1. الحسابات
     cons_kwh = [b/price_kwh if price_kwh > 0 else 0 for b in monthly_bills]
     total_cons = sum(cons_kwh)
     daily_avg = (total_cons/12)/30
     
-    # Sizing
     req_sys = (daily_avg/sun_hours)*1.15
     max_sys = roof_area/7
     final_sys = min(req_sys, max_sys)
@@ -159,130 +174,104 @@ if run_calc:
     if panels < 1: panels = 1
     actual_sys = (panels*450)/1000
     
-    # التكاليف
     solar_cost = actual_sys * cost_kw
     batt_size = 0
     batt_cost = 0
-    real_autonomy = 0
-    
     if want_battery:
         load_hourly = daily_avg / 24
         batt_size = load_hourly * batt_hours
         batt_cost = batt_size * batt_cost_unit
-        real_autonomy = batt_size / load_hourly if load_hourly > 0 else 0
-        
+    
     total_invest = solar_cost + batt_cost
     
-    # 2. المحاكاة الهندسية الدقيقة (Heat Loss & Efficiency)
-    # نظام تقييم الخسائر: 20% فواقد (أسلاك، غبار، محولات) + فواقد حرارية في الصيف
-    base_efficiency = 0.80 
-    
+    # المحاكاة مع الفواقد الحرارية
     prod_curve_kwh = []
     total_prod_year = 0
-    
-    mon_prod_base = actual_sys * sun_hours * 30 * base_efficiency
+    mon_prod_base = actual_sys * sun_hours * 30 * 0.80 # كفاءة 80%
     
     for i in range(12):
-        # معادلة الفقد الحراري (Heat Derating)
-        # الصيف (يونيو-سبتمبر) الحرارة عالية => فقدان إضافي 10-15%
-        temp_factor = 1.0
-        if i in [5, 6, 7, 8]: temp_factor = 0.85 # حرارة عالية
-        elif i in [4, 9]: temp_factor = 0.90     # حرارة متوسطة
-        
+        temp_factor = 0.85 if i in [5, 6, 7, 8] else 1.0 # حرارة الصيف
         monthly_gen = mon_prod_base * temp_factor
         prod_curve_kwh.append(monthly_gen)
         total_prod_year += monthly_gen
 
-    # 3. التحليل المالي المتقدم (LCOE & NPV)
+    # التحليل المالي
     years_range = range(1, 26)
     cash_flow = []
-    total_production_lifecycle = 0
-    inflation_rate = 0.03
-    degradation_rate = 0.005
+    cumulative_cash_flow = []
+    cumulative_val = -total_invest
     current_price_sim = price_kwh
     yearly_prod_sim = total_prod_year
+    total_prod_lifecycle = 0
     
     for year in years_range:
-        useful_prod = min(yearly_prod_sim, total_cons)
-        savings = (useful_prod * current_price_sim) - (total_invest * 0.01) # O&M
-        cash_flow.append(savings)
+        net_savings = (min(yearly_prod_sim, total_cons) * current_price_sim) - (total_invest * 0.01)
+        cash_flow.append(net_savings)
+        cumulative_val += net_savings
+        cumulative_cash_flow.append(cumulative_val)
         
-        total_production_lifecycle += useful_prod
-        
+        total_prod_lifecycle += min(yearly_prod_sim, total_cons)
         current_price_sim *= (1 + inflation_rate)
         yearly_prod_sim *= (1 - degradation_rate)
         
-    # LCOE = Total Cost / Total Energy Produced
-    # تكلفة الصيانة التقريبية طوال العمر
-    total_om_lifecycle = (total_invest * 0.01) * 25
-    lcoe = (total_invest + total_om_lifecycle) / total_production_lifecycle if total_production_lifecycle > 0 else 0
+    annual_savings_y1 = cash_flow[0] + (total_invest * 0.01)
     
-    npv_value = npf.npv(0.05, [-total_invest] + cash_flow)
+    # LCOE & NPV & Payback
+    lcoe = (total_invest + (total_invest * 0.01 * 25)) / total_prod_lifecycle if total_prod_lifecycle > 0 else 0
+    npv_value = npf.npv(discount_rate, [-total_invest] + cash_flow)
+    
     payback_years = 0
-    cum_cf = []
-    curr_cum = -total_invest
-    for cf in cash_flow:
-        curr_cum += cf
-        cum_cf.append(curr_cum)
-        
-    for i, val in enumerate(cum_cf):
+    for i, val in enumerate(cumulative_cash_flow):
         if val >= 0:
             payback_years = i + 1
             break
+    if payback_years == 0: payback_years = 25
             
     roi = ((sum(cash_flow) / total_invest) * 100)
 
-    # --- واجهة النتائج ---
-    
-    # 1. النتائج الفنية
+    # --- النتائج (أرقام نظيفة) ---
     st.subheader(t["results"])
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("حجم النظام (kWp)", f"{actual_sys:.2f}")
     c2.metric("عدد الألواح", f"{panels}")
-    c3.metric("الإنتاج السنوي (المتوقع)", f"{int(total_prod_year):,} kWh")
-    if want_battery:
-        c4.metric("الاستقلالية (Autonomy)", f"{real_autonomy:.1f} Hours")
-    else:
-        c4.metric("تغطية الاستهلاك", f"{(total_prod_year/total_cons)*100:.0f}%")
-
-    # 2. النتائج المالية
+    c3.metric("التكلفة الكلية", f"{fmt(total_invest)} {curr}")
+    c4.metric("التوفير السنوي", f"{fmt(annual_savings_y1)} {curr}")
+    
     st.markdown("---")
-    st.subheader(t["financials"])
+    st.markdown("##### **المؤشرات المالية المتقدمة**")
     f1, f2, f3, f4 = st.columns(4)
-    f1.metric("التكلفة (CAPEX)", f"{total_invest:,.0f} SAR")
-    f2.metric("LCOE (تكلفة الكيلوواط)", f"{lcoe:.3f} SAR/kWh", help="تكلفتك لإنتاج الطاقة مقارنة بـ 0.18 للشركة")
-    f3.metric("NPV (القيمة الحالية)", f"{npv_value:,.0f} SAR")
-    f4.metric("فترة الاسترداد", f"{payback_years} Years")
+    f1.metric("العائد (ROI)", f"{int(roi)}%")
+    f2.metric("الاسترداد (Payback)", f"{payback_years} Years")
+    f3.metric("صافي القيمة (NPV)", f"{fmt(npv_value)} {curr}", help=t["npv_help"])
+    f4.metric("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {curr}", help=t["lcoe_help"])
 
-    # 3. رأي الخبير
+    # --- الذكاء الاصطناعي (مع الشرح) ---
     st.markdown("---")
     st.subheader(t["ai_opinion"])
     
-    verdict = ""
-    color = "blue"
-    if lcoe < 0.10: 
-        verdict = f"🌟 **مشروع استثنائي!** تكلفة إنتاجك للطاقة ({lcoe:.3f}) أقل من نصف سعر شركة الكهرباء. هذا المشروع هو 'طابعة نقود' حقيقية."
-        color = "green"
-    elif lcoe < price_kwh:
-        verdict = f"✅ **مشروع رابح.** تكلفة إنتاجك ({lcoe:.3f}) أرخص من الشبكة. العائد الاستثماري {roi:.0f}% ممتاز."
-    else:
-        verdict = "⚠️ **تنبيه:** تكلفة النظام مرتفعة مقارنة بالتوفير. ينصح بتقليل البطاريات أو التفاوض على سعر النظام."
-        color = "red"
-        
-    if want_battery:
-        verdict += f" \n🔋 **ملاحظة:** إضافة البطاريات رفعت التكلفة ولكنها تمنحك أماناً لمدة {real_autonomy:.1f} ساعة."
-        
-    st.info(verdict, icon="🤖")
+    advice = ""
+    if roi > 250: advice = f"🚀 **مشروع ممتاز (A+):** العميل سيسترد رأس المال في {payback_years} سنوات فقط. الأرباح المتوقعة خلال 25 سنة تتجاوز {fmt(sum(cash_flow))} ريال."
+    elif roi > 100: advice = f"✅ **مشروع مجدي (B):** النظام يغطي الاستهلاك بشكل جيد. الاستثمار آمن بمعدل عائد {int(roi)}%."
+    else: advice = f"⚠️ **جدوى منخفضة (C):** التوفير السنوي ({fmt(annual_savings_y1)}) قليل مقارنة بالتكلفة. حاول تقليل عدد الألواح."
+    
+    # إضافة شرح للمصطلحات
+    ai_explanation = f"""
+    \n\n--- **شرح المصطلحات:** ---
+    * **LCOE ({lcoe:.3f}):** تعني أن كل كيلوواط تنتجه من شمسك يكلفك {lcoe:.3f} ريال، بينما تشتريه من الدولة بـ {price_kwh} ريال. الفرق هو ربحك!
+    * **NPV ({fmt(npv_value)}):** هذا هو الربح الصافي الحقيقي للمشروع بفلوس "اليوم"، بعد خصم التضخم. إذا كان موجباً، فالمشروع رابح 100%.
+    """
+    st.info(advice + ai_explanation, icon="🤖")
 
-    # 4. الرسوم
+    # --- الرسوم البيانية ---
     st.markdown("---")
     fig = go.Figure()
     months_ar = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
-    fig.add_trace(go.Bar(x=months_ar, y=prod_curve_kwh, name='الإنتاج (بعد خصم الحرارة)', marker_color='#FBC02D'))
-    fig.add_trace(go.Scatter(x=months_ar, y=cons_kwh, name='الاستهلاك', line=dict(color='#D32F2F', width=3)))
+    fig.add_trace(go.Bar(x=months_ar, y=prod_curve_kwh, name='الإنتاج الشمسي', marker_color='#FBC02D'))
+    fig.add_trace(go.Scatter(x=months_ar, y=cons_kwh, name='استهلاك العميل', line=dict(color='#D32F2F', width=3)))
+    fig.update_layout(title=t["chart_title"], yaxis_title="kWh")
     st.plotly_chart(fig, use_container_width=True)
 
-    # 5. PDF المحسن
+    # --- PDF محسن (مع رسوميات داخلية) ---
     def create_pdf():
         pdf = FPDF()
         pdf.add_page()
@@ -296,8 +285,8 @@ if run_calc:
             if language == "العربية" and os.path.exists(font_path): return get_display(arabic_reshaper.reshape(text))
             return text
 
-        # Header Professional
-        pdf.set_fill_color(44, 62, 80) # Navy Blue
+        # Header
+        pdf.set_fill_color(44, 62, 80)
         pdf.rect(0, 0, 210, 40, 'F')
         pdf.set_text_color(255, 255, 255)
         pdf.set_font_size(24)
@@ -305,49 +294,68 @@ if run_calc:
         pdf.set_font_size(14)
         pdf.cell(190, 10, txt=txt(REPORT_TITLE), ln=True, align='C')
         pdf.ln(20)
-        
         pdf.set_text_color(0, 0, 0)
         
-        # Helper for colored tables
-        def section_title(title):
-            pdf.set_fill_color(230, 230, 230)
-            pdf.set_font('Amiri', '', 14)
-            pdf.cell(190, 10, txt=txt(title), ln=True, fill=True, align='R')
-            pdf.ln(2)
+        def row(k, v):
+            pdf.cell(110, 8, txt=txt(k), border=1, align='R')
+            pdf.cell(80, 8, txt=txt(str(v)), border=1, ln=True, align='C')
 
-        def row(k, v, bold=False):
-            pdf.set_font('Amiri', '', 12)
-            if bold: pdf.set_text_color(0, 102, 204)
-            pdf.cell(120, 8, txt=txt(k), border=1, align='R')
-            pdf.cell(70, 8, txt=txt(str(v)), border=1, ln=True, align='C')
-            pdf.set_text_color(0, 0, 0)
-
-        # 1. Technical
-        section_title("1. المواصفات الفنية والهندسية")
+        # 1. البيانات
+        pdf.set_fill_color(230, 230, 230)
+        pdf.set_font_size(14)
+        pdf.cell(190, 10, txt=txt("1. ملخص المشروع والبيانات"), ln=True, fill=True, align='R')
+        pdf.set_font_size(12)
+        
         lat, lng = st.session_state['coords']
-        row("إحداثيات الموقع", f"{lat:.5f}, {lng:.5f}" if lat!=0 else "غير محدد")
-        row("حجم النظام الكهروضوئي", f"{actual_sys:.2f} kWp", True)
-        row("عدد الألواح المطلوبة", f"{panels} Panels")
-        row("إنتاج الطاقة السنوي (بعد الفواقد)", f"{int(total_prod_year):,} kWh")
-        if want_battery: row("سعة التخزين (البطاريات)", f"{batt_size:.1f} kWh")
+        loc_str = f"{lat:.5f}, {lng:.5f}" if lat!=0 else "غير محدد"
+        row("الموقع والإحداثيات", f"{location_key} ({loc_str})")
+        row("حجم النظام المقترح", f"{actual_sys:.2f} kWp")
+        row("عدد الألواح", f"{panels}")
+        row("إجمالي الاستهلاك السنوي", f"{fmt(total_cons)} kWh")
+        row("الإنتاج المتوقع (السنة 1)", f"{fmt(total_prod_year)} kWh")
+        pdf.ln(5)
 
+        # 2. المالي
+        pdf.set_font_size(14)
+        pdf.cell(190, 10, txt=txt("2. التحليل المالي والاستثماري"), ln=True, fill=True, align='R')
+        pdf.set_font_size(12)
+        row("إجمالي التكلفة (CAPEX)", f"{fmt(total_invest)} SAR")
+        row("التوفير السنوي (Year 1)", f"{fmt(annual_savings_y1)} SAR")
+        row("صافي القيمة الحالية (NPV)", f"{fmt(npv_value)} SAR")
+        row("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} SAR/kWh")
+        row("فترة استرداد رأس المال", f"{payback_years} Years")
+        
+        # 3. رسم بياني بسيط داخل PDF (Visual Savings)
+        pdf.ln(10)
+        pdf.set_font_size(14)
+        pdf.cell(190, 10, txt=txt("3. مقارنة التكلفة والعائد (Visual Chart)"), ln=True, fill=True, align='R')
         pdf.ln(5)
         
-        # 2. Financial
-        section_title("2. الجدوى الاقتصادية والاستثمارية")
-        row("إجمالي التكلفة الاستثمارية", f"{total_invest:,.0f} SAR", True)
-        row("التوفير السنوي المتوقع", f"{cash_flow[0]:,.0f} SAR")
-        row("سعر تكلفة الطاقة المستوي (LCOE)", f"{lcoe:.3f} SAR/kWh")
-        row("صافي القيمة الحالية (NPV)", f"{npv_value:,.0f} SAR")
-        row("فترة استرداد رأس المال", f"{payback_years} Years")
-
+        # رسم مستطيلات تمثل الأرقام
+        max_val = max(total_invest, sum(cash_flow))
+        w_invest = (total_invest / max_val) * 150
+        w_savings = (sum(cash_flow) / max_val) * 150
+        
+        pdf.set_font_size(10)
+        # شريط التكلفة (أحمر)
+        pdf.set_fill_color(231, 76, 60)
+        pdf.cell(30, 10, txt=txt("التكلفة:"), align='R')
+        pdf.cell(w_invest, 10, txt="", fill=True)
+        pdf.cell(30, 10, txt=f"{fmt(total_invest)} SAR", ln=True)
+        
+        # شريط الأرباح (أخضر)
+        pdf.set_fill_color(46, 204, 113)
+        pdf.cell(30, 10, txt=txt("أرباح 25 سنة:"), align='R')
+        pdf.cell(w_savings, 10, txt="", fill=True)
+        pdf.cell(30, 10, txt=f"{fmt(sum(cash_flow))} SAR", ln=True)
+        
         pdf.ln(10)
         pdf.set_text_color(100, 100, 100)
-        pdf.multi_cell(190, 6, txt=txt("ملاحظة: تأخذ هذه الدراسة في الاعتبار فواقد الحرارة في الصيف بنسبة 15%، وفواقد الغبار والكابلات بنسبة 20%، لضمان دقة النتائج."), align='R')
+        pdf.multi_cell(190, 6, txt=txt("توصية المستشار: " + advice.replace('**','')), border=1, align='R')
 
         return pdf.output(dest='S').encode('latin-1')
 
-    st.download_button(t["download_pdf"], create_pdf(), "Engineering_Report.pdf", "application/pdf", type="primary")
+    st.download_button(t["download_pdf"], create_pdf(), "Solar_Platinum_Report.pdf", "application/pdf", type="primary")
 
 else:
-    st.info("جاهز للتحليل. الرجاء تحديد الموقع على الخريطة أولاً.")
+    st.info("النظام جاهز. ابدأ بتحديد الموقع على الخريطة.")
