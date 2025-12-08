@@ -12,8 +12,8 @@ from streamlit_folium import st_folium
 from shapely.geometry import shape
 import math
 import requests
-import re # مكتبة للتعامل مع النصوص وتنظيفها
-import tempfile # مكتبة للملفات المؤقتة
+import re 
+import tempfile 
 
 # ==========================================
 # 🏷️ إعدادات الشركة
@@ -38,12 +38,10 @@ def ensure_font_exists():
             st.error("فشل تحميل ملف الخط العربي.")
     return font_filename
 
-# --- دالة تنظيف النصوص (الحل الجذري للمشاكل) ---
+# --- دالة تنظيف النصوص ---
 def clean_text(text):
+    if not isinstance(text, str): text = str(text)
     # يبقي فقط على الحروف العربية، الإنجليزية، الأرقام، وعلامات الترقيم الأساسية
-    # يحذف الإيموجي والرموز الغريبة
-    if not isinstance(text, str): return str(text)
-    # هذا النمط يسمح بالأحرف والمسافات والرموز الأساسية فقط
     return re.sub(r'[^\w\s\.\,\-\:\%\(\)\/أ-ي]', '', text)
 
 # --- دوال مساعدة ---
@@ -330,19 +328,23 @@ if run_calc:
 
     # --- PDF (Fixed and Robust) ---
     def create_pdf():
-        # استخدام ملف مؤقت لتفادي مشاكل الذاكرة والترميز
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
             pdf = PDF()
             pdf.add_page()
             
             font_path = ensure_font_exists()
-            pdf.add_font('Amiri', '', font_path, uni=True)
+            # fpdf2 لا يحتاج uni=True
+            pdf.add_font('Amiri', '', font_path)
             pdf.set_font('Amiri', '', 12)
             
             def txt(text):
-                # تنظيف النص من الرموز غير المدعومة قبل الكتابة
+                if not isinstance(text, str): text = str(text)
                 clean = clean_text(text)
-                if language == "العربية": return get_display(arabic_reshaper.reshape(clean))
+                if language == "العربية": 
+                    try:
+                        return get_display(arabic_reshaper.reshape(clean))
+                    except:
+                        return clean
                 return clean
 
             # 1. Company Title
@@ -364,7 +366,7 @@ if run_calc:
                 pdf.cell(100, 8, txt(label), 1, 0, 'R')
                 pdf.cell(90, 8, txt(str(value)), 1, 1, 'C')
 
-            lat, lng = st.session_state['coords']
+            lat, lng = st.session_state.get('coords', (0,0))
             loc_str = f"{lat:.5f}, {lng:.5f}" if lat!=0 else "-"
             
             row("الموقع والإحداثيات", f"{location_key} ({loc_str})")
@@ -372,7 +374,7 @@ if run_calc:
             row("عدد الألواح", f"{panels}")
             row("إجمالي الاستهلاك السنوي", f"{fmt(total_cons)} kWh")
             row("الإنتاج المتوقع (السنة 1)", f"{fmt(total_prod_year)} kWh")
-            pdf.add_font('Amiri', '', font_path)
+            pdf.ln(5)
 
             # 3. Financial Table
             pdf.set_font('Amiri', '', 14)
@@ -405,7 +407,6 @@ if run_calc:
             pdf.set_font('Amiri', '', 12)
             pdf.set_text_color(0, 100, 0)
             
-            # تنظيف نص النصيحة تماماً قبل الكتابة
             safe_advice = clean_text(advice)
             pdf.multi_cell(0, 8, txt("توصية المستشار: " + safe_advice), 0, 'R')
 
@@ -420,4 +421,3 @@ if run_calc:
 
 else:
     st.info("النظام جاهز. ابدأ بتحديد الموقع على الخريطة.")
-
