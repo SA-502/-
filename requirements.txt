@@ -5,3 +5,5 @@ fpdf
 arabic-reshaper
 python-bidi
 numpy-financial
+folium
+streamlit-folium
