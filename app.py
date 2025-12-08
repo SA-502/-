@@ -7,18 +7,55 @@ from bidi.algorithm import get_display
 import os
 import numpy_financial as npf
 import folium
+from folium.plugins import Draw
 from streamlit_folium import st_folium
+from shapely.geometry import shape
+import math
 
 # --- إعدادات الصفحة ---
-st.set_page_config(page_title="Solar Sales Tool (Map Edition)", layout="wide", page_icon="🌍")
+st.set_page_config(page_title="Solar Engineering Tool", layout="wide", page_icon="📐")
+
+# --- دالة مساعدة لحساب المساحة من الإحداثيات ---
+def calculate_area_m2(geojson_geometry):
+    """
+    تقوم هذه الدالة بتحويل الرسم الهندسي من الخريطة إلى مساحة بالمتر المربع
+    باستخدام معادلات إسقاط تقريبية دقيقة للمساحات الصغيرة (الأسطح).
+    """
+    if geojson_geometry is None:
+        return 0.0
+    
+    geom = shape(geojson_geometry)
+    # نحسب مركز الشكل لنعرف دائرة العرض التقريبية
+    center_lat = geom.centroid.y
+    
+    # تحويل الدرجات إلى أمتار
+    # 1 درجة خط عرض = 111132.92 متر تقريباً
+    # 1 درجة خط طول = 40075000 * cos(lat) / 360 متر
+    lat_to_m = 111132.92
+    lon_to_m = 40075000 * math.cos(math.radians(center_lat)) / 360
+    
+    # نقوم بإنشاء مضلع جديد بوحدات الأمتار
+    new_coords = []
+    if geom.geom_type == 'Polygon':
+        # التعامل مع المضلع البسيط
+        coords = list(geom.exterior.coords)
+        for x, y in coords:
+            new_coords.append((x * lon_to_m, y * lat_to_m))
+    else:
+        return 0.0 # لا ندعم الأشكال المعقدة جداً هنا
+        
+    from shapely.geometry import Polygon
+    poly_m = Polygon(new_coords)
+    return poly_m.area
 
 # --- النصوص والترجمة ---
 translations = {
     "English": {
-        "title": "⚡ Solar Sales & Engineering Tool (Internal Use)",
+        "title": "⚡ Solar Sales & Engineering Tool (Internal)",
         "sidebar_title": "Client Data Entry",
-        "map_title": "📍 Customer Location",
-        "coords": "Coordinates",
+        "map_title": "📍 Site Survey (Draw Roof Area)",
+        "coords": "Selected Coordinates",
+        "area_calc": "Calculated Roof Area",
         "input_mode": "Input Method",
         "mode_avg": "Simple Average Bill",
         "mode_12m": "Detailed 12-Month Bills",
@@ -54,8 +91,9 @@ translations = {
     "العربية": {
         "title": "⚡ نظام مبيعات وهندسة الطاقة الشمسية (داخلي)",
         "sidebar_title": "إدخال بيانات العميل",
-        "map_title": "📍 تحديد موقع العميل",
+        "map_title": "📍 معاينة الموقع (ارسم السطح)",
         "coords": "الإحداثيات المختارة",
+        "area_calc": "مساحة الرسم المحسوبة",
         "input_mode": "طريقة الإدخال",
         "mode_avg": "فاتورة متوسطة (تقريبي)",
         "mode_12m": "فواتير 12 شهر (دقيق)",
@@ -98,26 +136,46 @@ with st.sidebar:
     
     st.header(t["sidebar_title"])
 
-    # --- إضافة الخريطة (جديد!) ---
+    # --- الخريطة مع أدوات الرسم (Draw Tools) ---
+    # نستخدم session_state لحفظ المساحة المحسوبة
+    if 'calculated_area' not in st.session_state:
+        st.session_state['calculated_area'] = 0.0
+    if 'coords' not in st.session_state:
+        st.session_state['coords'] = (0.0, 0.0)
+
     with st.expander(t["map_title"], expanded=True):
-        # إحداثيات افتراضية (وسط المملكة)
         default_location = [24.7136, 46.6753]
         
-        # إنشاء الخريطة
-        m = folium.Map(location=default_location, zoom_start=5)
-        # السماح بالنقر
-        m.add_child(folium.LatLngPopup())
+        m = folium.Map(location=default_location, zoom_start=5, max_zoom=20)
         
-        map_output = st_folium(m, height=250, width=280)
+        # إضافة أدوات الرسم
+        draw = Draw(
+            export=False,
+            position='topleft',
+            draw_options={'polyline': False, 'circle': False, 'marker': True, 'circlemarker': False},
+            edit_options={'edit': True}
+        )
+        draw.add_to(m)
         
-        # التقاط الإحداثيات عند النقر
-        lat, lng = 0.0, 0.0
-        if map_output['last_clicked']:
-            lat = map_output['last_clicked']['lat']
-            lng = map_output['last_clicked']['lng']
-            st.success(f"{t['coords']}: {lat:.4f}, {lng:.4f}")
-        else:
-            st.info("اضغط على الخريطة لتحديد الموقع")
+        map_output = st_folium(m, height=300, width=280)
+        
+        # معالجة الرسم
+        drawn_area = 0.0
+        if map_output and 'last_active_drawing' in map_output and map_output['last_active_drawing']:
+            drawing = map_output['last_active_drawing']
+            geometry = drawing['geometry']
+            
+            # إذا كان الرسم مضلع (مساحة)
+            if geometry['type'] == 'Polygon':
+                drawn_area = calculate_area_m2(geometry)
+                st.session_state['calculated_area'] = drawn_area
+                st.success(f"{t['area_calc']}: {drawn_area:.2f} m²")
+                
+            # إذا كان نقطة (لتحديد الموقع فقط)
+            elif geometry['type'] == 'Point':
+                coords = geometry['coordinates']
+                st.session_state['coords'] = (coords[1], coords[0]) # Folium uses Lon, Lat
+                st.info(f"{t['coords']}: {coords[1]:.4f}, {coords[0]:.4f}")
 
     st.divider()
     
@@ -156,7 +214,13 @@ with st.sidebar:
     location_key = st.selectbox(t["city"], list(saudi_cities.keys()))
     sun_hours = saudi_cities[location_key]
     
-    roof_area = st.number_input(t["area"], min_value=10.0, value=400.0)
+    # استخدام المساحة المحسوبة من الخريطة إذا وجدت، وإلا استخدام القيمة الافتراضية
+    default_area = 400.0
+    if st.session_state['calculated_area'] > 0:
+        default_area = st.session_state['calculated_area']
+        
+    roof_area = st.number_input(t["area"], min_value=10.0, value=default_area, help="يتم تحديثها تلقائياً عند الرسم على الخريطة")
+    
     price_per_kwh = st.number_input(t["price_kwh"], min_value=0.01, value=0.18, format="%.3f")
     cost_per_kw = st.number_input(t["cost_per_kw"], min_value=1000.0, value=3000.0)
 
@@ -236,7 +300,6 @@ if run_calc:
     for year in years_range:
         useful_production = min(yearly_prod, total_yearly_consumption)
         savings = useful_production * current_price
-        
         om_cost = total_investment * 0.01
         net_savings = savings - om_cost
         
@@ -285,7 +348,6 @@ if run_calc:
     
     st.divider()
     
-    # تفصيل السعر
     st.subheader(t["breakdown"])
     solar_panels_cost = solar_investment * 0.45
     inverter_cost = solar_investment * 0.15
@@ -317,7 +379,7 @@ if run_calc:
     fig2.add_hline(y=0, line_dash="dash", line_color="red")
     st.plotly_chart(fig2, use_container_width=True)
 
-    # --- PDF Report with Location ---
+    # --- PDF Report ---
     def create_pro_pdf():
         pdf = FPDF()
         pdf.add_page()
@@ -335,7 +397,6 @@ if run_calc:
                 return get_display(arabic_reshaper.reshape(text))
             return text
 
-        # Header
         pdf.set_fill_color(50, 50, 50)
         pdf.rect(0, 0, 210, 30, 'F')
         pdf.set_text_color(255, 255, 255)
@@ -353,20 +414,22 @@ if run_calc:
             pdf.set_font('Amiri', '', 11)
             pdf.cell(80, 7, txt=txt(str(value)), border=1, ln=True, align='C')
 
-        # 1. Project Data (Updated with Coordinates)
+        # 1. Project Data
         pdf.set_fill_color(220, 220, 220)
         pdf.set_font_size(12)
         pdf.cell(190, 8, txt=txt("1. Client & Location Data"), ln=True, fill=True, align='R' if language=="العربية" else 'L')
         
         table_row(t["city"], location_key.split('/')[0])
+        
         # طباعة الإحداثيات إذا تم تحديدها
+        lat, lng = st.session_state['coords']
         if lat != 0.0 and lng != 0.0:
             table_row("Map Coordinates", f"{lat:.5f}, {lng:.5f}")
         else:
             table_row("Map Coordinates", "Not Selected")
             
         table_row("Total Annual Consumption", f"{int(total_yearly_consumption):,} kWh")
-        table_row(t["area"], f"{roof_area} m2")
+        table_row(t["area"], f"{roof_area:.1f} m2")
         pdf.ln(4)
 
         # 2. System Specs
@@ -418,4 +481,4 @@ if run_calc:
     )
 
 else:
-    st.info("System Ready. Select location on map and enter data.")
+    st.info("System Ready. Draw roof area on map and enter data.")
