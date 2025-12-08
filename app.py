@@ -44,7 +44,7 @@ def calculate_area_m2(geojson_geometry):
     poly_m = Polygon(new_coords)
     return poly_m.area
 
-# --- كلاس PDF المطور (تم إصلاح خطأ الخطوط) ---
+# --- كلاس PDF المطور ---
 class PDF(FPDF):
     def header(self):
         self.set_fill_color(*PRIMARY_COLOR)
@@ -75,7 +75,7 @@ class PDF(FPDF):
         start_x = 20
         max_width = 100
         
-        # --- التعديل الهام هنا: استخدام الخط العربي للمسميات أيضاً ---
+        # استخدام الخط العربي للمسميات
         self.set_font('Amiri', '', 10) 
         
         for label, value in data_dict.items():
@@ -84,13 +84,16 @@ class PDF(FPDF):
             self.cell(60, bar_height, label, 0, 0, 'R')
             
             # الشريط
-            bar_width = (value / max_val) * max_width
+            if max_val > 0:
+                bar_width = (value / max_val) * max_width
+            else:
+                bar_width = 0
+                
             self.set_xy(125 - bar_width, self.get_y() + 1)
             self.set_fill_color(*ACCENT_COLOR)
             self.rect(125 - bar_width, self.get_y(), bar_width, bar_height - 2, 'F')
             
-            # القيمة الرقمية (نستخدم Arial للأرقام لأنها أوضح، أو نبقي Amiri)
-            # سنبقي Amiri للأمان لتجنب التبديل المستمر
+            # القيمة الرقمية
             self.set_xy(start_x, self.get_y() - 1)
             self.cell(20, bar_height, f"{int(value):,}", 0, 1, 'L')
 
@@ -165,14 +168,12 @@ with st.sidebar:
         cols = st.columns(3)
         for i, m in enumerate(months_display):
             with cols[i%3]:
-                # قيم افتراضية ذكية (صيف عالي)
                 def_val = 2000.0 if i in [5,6,7,8] else 800.0
                 val = st.number_input(m, value=def_val, key=i)
                 monthly_bills.append(val)
                 
-    else: # Mode Average
+    else: 
         avg_val = st.number_input(t["bill_avg"], value=1500.0, step=100.0)
-        # تطبيق التوزيع الموسمي السعودي القياسي تلقائياً
         factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7]
         avg_factor = sum(factors) / 12
         monthly_bills = [avg_val * (f / avg_factor) for f in factors]
@@ -266,10 +267,10 @@ if run_calc:
     roi = ((sum(cash_flow) / total_invest) * 100)
     payback_years = 0
     cum_cf = []
-    curr = -total_invest
+    curr_cf = -total_invest
     for cf in cash_flow:
-        curr += cf
-        cum_cf.append(curr)
+        curr_cf += cf
+        cum_cf.append(curr_cf)
     
     for i, val in enumerate(cum_cf):
         if val >= 0:
@@ -277,8 +278,128 @@ if run_calc:
             break
     if payback_years == 0: payback_years = 25
 
-    # --- النتائج ---
+    # --- النتائج (هنا كان الخطأ وتم إصلاحه) ---
     st.subheader(t["results"])
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("حجم النظام (kWp)", f"{actual_sys:.2f}")
-    c2.metric("عدد الأل
+    c2.metric("عدد الألواح", f"{panels}")
+    c3.metric("التكلفة الكلية", f"{fmt(total_invest)} {t['currency']}")
+    c4.metric("التوفير السنوي", f"{fmt(annual_savings_y1)} {t['currency']}")
+    
+    st.markdown("---")
+    st.markdown("##### **المؤشرات المالية المتقدمة**")
+    f1, f2, f3, f4 = st.columns(4)
+    f1.metric("العائد (ROI)", f"{int(roi)}%")
+    f2.metric("الاسترداد (Payback)", f"{payback_years} Years")
+    f3.metric("صافي القيمة (NPV)", f"{fmt(npv_value)} {t['currency']}", help=t["npv_help"])
+    f4.metric("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {t['currency']}", help=t["lcoe_help"])
+
+    # --- الذكاء الاصطناعي ---
+    st.markdown("---")
+    st.subheader(t["ai_opinion"])
+    
+    advice = ""
+    if roi > 250: advice = f"🚀 **مشروع ممتاز (A+):** العميل سيسترد رأس المال في {payback_years} سنوات فقط. الأرباح المتوقعة خلال 25 سنة تتجاوز {fmt(sum(cash_flow))} ريال."
+    elif roi > 100: advice = f"✅ **مشروع مجدي (B):** النظام يغطي الاستهلاك بشكل جيد. الاستثمار آمن بمعدل عائد {int(roi)}%."
+    else: advice = f"⚠️ **جدوى منخفضة (C):** التوفير السنوي ({fmt(annual_savings_y1)}) قليل مقارنة بالتكلفة. حاول تقليل عدد الألواح."
+    
+    ai_explanation = f"""
+    \n\n--- **شرح المصطلحات:** ---
+    * **LCOE ({lcoe:.3f}):** تكلفة إنتاجك للكيلوواط الواحد (كلما قل الرقم، كان أفضل).
+    * **NPV ({fmt(npv_value)}):** صافي الربح الحقيقي بأسعار اليوم.
+    """
+    st.info(advice + ai_explanation, icon="🤖")
+
+    # --- الرسوم البيانية ---
+    st.markdown("---")
+    fig = go.Figure()
+    months_ar = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
+    fig.add_trace(go.Bar(x=months_ar, y=prod_curve_kwh, name='الإنتاج الشمسي', marker_color='#FBC02D'))
+    fig.add_trace(go.Scatter(x=months_ar, y=cons_kwh, name='استهلاك العميل', line=dict(color='#D32F2F', width=3)))
+    fig.update_layout(title=t["chart_title"], yaxis_title="kWh")
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- PDF ---
+    def create_pdf():
+        pdf = PDF()
+        pdf.add_page()
+        
+        font_path = 'Amiri-Regular.ttf'
+        if os.path.exists(font_path):
+            pdf.add_font('Amiri', '', font_path, uni=True)
+            pdf.set_font('Amiri', '', 12)
+        else: pdf.set_font("Arial", size=12)
+        
+        def txt(text):
+            if language == "العربية" and os.path.exists(font_path): return get_display(arabic_reshaper.reshape(text))
+            return text
+
+        pdf.set_fill_color(44, 62, 80)
+        pdf.rect(0, 0, 210, 40, 'F')
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(24)
+        pdf.cell(190, 15, txt=txt(COMPANY_NAME), ln=True, align='C') 
+        pdf.set_font_size(14)
+        pdf.cell(190, 10, txt=txt(REPORT_TITLE), ln=True, align='C')
+        pdf.ln(20)
+        pdf.set_text_color(0, 0, 0)
+        
+        def row(k, v):
+            pdf.cell(110, 8, txt=txt(k), border=1, align='R')
+            pdf.cell(80, 8, txt=txt(str(v)), border=1, ln=True, align='C')
+
+        pdf.set_fill_color(230, 230, 230)
+        pdf.set_font_size(14)
+        pdf.cell(190, 10, txt=txt("1. ملخص المشروع والبيانات"), ln=True, fill=True, align='R')
+        pdf.set_font_size(12)
+        
+        lat, lng = st.session_state['coords']
+        loc_str = f"{lat:.5f}, {lng:.5f}" if lat!=0 else "غير محدد"
+        row("الموقع والإحداثيات", f"{location_key} ({loc_str})")
+        row("حجم النظام المقترح", f"{actual_sys:.2f} kWp")
+        row("عدد الألواح", f"{panels}")
+        row("إجمالي الاستهلاك السنوي", f"{fmt(total_cons)} kWh")
+        row("الإنتاج المتوقع (السنة 1)", f"{fmt(total_prod_year)} kWh")
+        pdf.ln(5)
+
+        pdf.set_font_size(14)
+        pdf.cell(190, 10, txt=txt("2. التحليل المالي والاستثماري"), ln=True, fill=True, align='R')
+        pdf.set_font_size(12)
+        row("إجمالي التكلفة (CAPEX)", f"{fmt(total_invest)} {t['currency']}")
+        row("التوفير السنوي (Year 1)", f"{fmt(annual_savings_y1)} {t['currency']}")
+        row("صافي القيمة الحالية (NPV)", f"{fmt(npv_value)} {t['currency']}")
+        row("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {t['currency']}/kWh")
+        row("فترة استرداد رأس المال", f"{payback_years} Years")
+        
+        pdf.ln(10)
+        pdf.set_font_size(14)
+        pdf.cell(190, 10, txt=txt("3. مقارنة التكلفة والعائد"), ln=True, fill=True, align='R')
+        pdf.ln(5)
+        
+        max_val = max(total_invest, sum(cash_flow))
+        w_invest = (total_invest / max_val) * 150
+        w_savings = (sum(cash_flow) / max_val) * 150
+        
+        chart_data = {
+            txt("الاستهلاك"): total_cons,
+            txt("الإنتاج"): total_prod_year
+        }
+        pdf.draw_chart(txt("مقارنة الاستهلاك والإنتاج (kWh)"), chart_data, max(total_cons, total_prod_year))
+        
+        chart_data_money = {
+            txt("تكلفة النظام"): total_invest,
+            txt("أرباح 25 سنة"): sum(cash_flow)
+        }
+        pdf.draw_chart(txt("العائد الاقتصادي (ريال)"), chart_data_money, max(total_invest, sum(cash_flow)))
+        
+        pdf.ln(10)
+        clean_advice = advice.replace('🚀', '').replace('✅', '').replace('⚠️', '').replace('🤖', '').replace('**', '')
+        pdf.set_text_color(0, 100, 0)
+        pdf.multi_cell(190, 6, txt=txt("توصية المستشار: " + clean_advice), border=1, align='R')
+
+        return pdf.output(dest='S').encode('latin-1')
+
+    st.download_button(t["download_pdf"], create_pdf(), "Solar_Proposal.pdf", "application/pdf", type="primary")
+
+else:
+    st.info("النظام جاهز. ابدأ بتحديد الموقع على الخريطة.")
