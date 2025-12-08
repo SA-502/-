@@ -11,7 +11,9 @@ from folium.plugins import Draw, Fullscreen
 from streamlit_folium import st_folium
 from shapely.geometry import shape
 import math
-import requests # مكتبة لتحميل الخط
+import requests
+import re # مكتبة للتعامل مع النصوص وتنظيفها
+import tempfile # مكتبة للملفات المؤقتة
 
 # ==========================================
 # 🏷️ إعدادات الشركة
@@ -23,19 +25,26 @@ REPORT_TITLE = "عرض فني ومالي - Technical & Financial Proposal"
 
 st.set_page_config(page_title=PAGE_TITLE, layout="wide", page_icon="☀️")
 
-# --- دالة تحميل الخط تلقائياً (الحل السحري) ---
+# --- دالة تحميل الخط تلقائياً ---
 def ensure_font_exists():
     font_filename = 'Amiri-Regular.ttf'
     if not os.path.exists(font_filename):
-        # رابط مباشر للخط من جوجل
         url = "https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf"
         try:
             response = requests.get(url)
             with open(font_filename, 'wb') as f:
                 f.write(response.content)
         except:
-            st.error("فشل تحميل ملف الخط العربي تلقائياً. يرجى التأكد من الاتصال بالإنترنت.")
+            st.error("فشل تحميل ملف الخط العربي.")
     return font_filename
+
+# --- دالة تنظيف النصوص (الحل الجذري للمشاكل) ---
+def clean_text(text):
+    # يبقي فقط على الحروف العربية، الإنجليزية، الأرقام، وعلامات الترقيم الأساسية
+    # يحذف الإيموجي والرموز الغريبة
+    if not isinstance(text, str): return str(text)
+    # هذا النمط يسمح بالأحرف والمسافات والرموز الأساسية فقط
+    return re.sub(r'[^\w\s\.\,\-\:\%\(\)\/أ-ي]', '', text)
 
 # --- دوال مساعدة ---
 def fmt(num):
@@ -60,7 +69,6 @@ def calculate_area_m2(geojson_geometry):
 # --- كلاس PDF المطور ---
 class PDF(FPDF):
     def header(self):
-        # الألوان (كحلي وذهبي)
         self.set_fill_color(44, 62, 80)
         self.rect(0, 0, 210, 40, 'F')
         self.set_font('Arial', 'B', 24)
@@ -82,26 +90,18 @@ class PDF(FPDF):
         self.set_text_color(0, 0, 0)
         self.cell(0, 10, title, 0, 1, 'R')
         self.ln(2)
-        
         bar_height = 8
         start_x = 20
         max_width = 100
-        
         self.set_font('Amiri', '', 10) 
-        
         for label, value in data_dict.items():
             self.set_xy(130, self.get_y())
             self.cell(60, bar_height, label, 0, 0, 'R')
-            
-            if max_val > 0:
-                bar_width = (value / max_val) * max_width
-            else:
-                bar_width = 0
-                
+            if max_val > 0: bar_width = (value / max_val) * max_width
+            else: bar_width = 0
             self.set_xy(125 - bar_width, self.get_y() + 1)
             self.set_fill_color(243, 156, 18)
             self.rect(125 - bar_width, self.get_y(), bar_width, bar_height - 2, 'F')
-            
             self.set_xy(start_x, self.get_y() - 1)
             self.cell(20, bar_height, f"{int(value):,}", 0, 1, 'L')
 
@@ -135,9 +135,7 @@ translations = {
 
 # --- القائمة الجانبية ---
 with st.sidebar:
-    # التأكد من وجود الخط فوراً عند التشغيل
     font_path = ensure_font_exists()
-    
     language = st.radio("Language / اللغة", ["العربية", "English"])
     t = translations[language]
     curr = t["currency"]
@@ -189,7 +187,7 @@ with st.sidebar:
         avg_factor = sum(factors) / 12
         monthly_bills = [avg_val * (f / avg_factor) for f in factors]
 
-    # 3. الموقع والمساحة
+    # 3. المواصفات
     saudi_cities = {"الرياض":5.8, "جدة":6.0, "الدمام":5.6, "مكة":6.2, "المدينة":6.3, "أبها":5.9, "تبوك":6.1, "حائل":6.0, "جازان":5.9, "القصيم":5.8}
     location_key = st.selectbox(t["city"], list(saudi_cities.keys()))
     sun_hours = saudi_cities[location_key]
@@ -310,9 +308,9 @@ if run_calc:
     st.subheader(t["ai_opinion"])
     
     advice = ""
-    if roi > 250: advice = f"🚀 **مشروع ممتاز (A+):** العميل سيسترد رأس المال في {payback_years:.1f} سنوات فقط. الأرباح المتوقعة خلال 25 سنة تتجاوز {fmt(sum(cash_flow))} ريال."
-    elif roi > 100: advice = f"✅ **مشروع مجدي (B):** النظام يغطي الاستهلاك بشكل جيد. الاستثمار آمن بمعدل عائد {int(roi)}%."
-    else: advice = f"⚠️ **جدوى منخفضة (C):** التوفير السنوي ({fmt(annual_savings_y1)}) قليل مقارنة بالتكلفة. حاول تقليل عدد الألواح."
+    if roi > 250: advice = f"🚀 مشروع ممتاز (A+): العميل سيسترد رأس المال في {payback_years:.1f} سنوات فقط. الأرباح المتوقعة خلال 25 سنة تتجاوز {fmt(sum(cash_flow))} ريال."
+    elif roi > 100: advice = f"✅ مشروع مجدي (B): النظام يغطي الاستهلاك بشكل جيد. الاستثمار آمن بمعدل عائد {int(roi)}%."
+    else: advice = f"⚠️ جدوى منخفضة (C): التوفير السنوي ({fmt(annual_savings_y1)}) قليل مقارنة بالتكلفة. حاول تقليل عدد الألواح."
     
     ai_explanation = f"""
     \n\n--- **شرح المصطلحات:** ---
@@ -330,85 +328,95 @@ if run_calc:
     fig.update_layout(title=t["chart_title"], yaxis_title="kWh")
     st.plotly_chart(fig, use_container_width=True)
 
-    # --- PDF ---
+    # --- PDF (Fixed and Robust) ---
     def create_pdf():
-        pdf = PDF()
-        pdf.add_page()
-        
-        # استخدام الخط الذي تم التأكد من وجوده
-        font_path = ensure_font_exists()
-        pdf.add_font('Amiri', '', font_path, uni=True)
-        pdf.set_font('Amiri', '', 12)
-        
-        def txt(text):
-            if language == "العربية": return get_display(arabic_reshaper.reshape(text))
-            return text
+        # استخدام ملف مؤقت لتفادي مشاكل الذاكرة والترميز
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+            pdf = PDF()
+            pdf.add_page()
+            
+            font_path = ensure_font_exists()
+            pdf.add_font('Amiri', '', font_path, uni=True)
+            pdf.set_font('Amiri', '', 12)
+            
+            def txt(text):
+                # تنظيف النص من الرموز غير المدعومة قبل الكتابة
+                clean = clean_text(text)
+                if language == "العربية": return get_display(arabic_reshaper.reshape(clean))
+                return clean
 
-        # 1. Company Title
-        pdf.set_font('Amiri', '', 18)
-        pdf.cell(0, 10, txt(COMPANY_NAME), 0, 1, 'C')
-        pdf.set_font('Amiri', '', 14)
-        pdf.cell(0, 10, txt(REPORT_TITLE), 0, 1, 'C')
-        pdf.ln(5)
+            # 1. Company Title
+            pdf.set_font('Amiri', '', 18)
+            pdf.cell(0, 10, txt(COMPANY_NAME), 0, 1, 'C')
+            pdf.set_font('Amiri', '', 14)
+            pdf.cell(0, 10, txt(REPORT_TITLE), 0, 1, 'C')
+            pdf.ln(5)
 
-        # 2. Project Summary Table
-        pdf.set_fill_color(240, 240, 240)
-        pdf.set_font('Amiri', '', 14)
-        pdf.cell(0, 10, txt("1. ملخص المشروع والبيانات"), 0, 1, 'R', True)
-        pdf.ln(2)
-        
-        pdf.set_font('Amiri', '', 12)
-        
-        def row(label, value):
-            pdf.cell(100, 8, txt(label), 1, 0, 'R')
-            pdf.cell(90, 8, txt(str(value)), 1, 1, 'C')
+            # 2. Project Summary Table
+            pdf.set_fill_color(240, 240, 240)
+            pdf.set_font('Amiri', '', 14)
+            pdf.cell(0, 10, txt("1. ملخص المشروع والبيانات"), 0, 1, 'R', True)
+            pdf.ln(2)
+            
+            pdf.set_font('Amiri', '', 12)
+            
+            def row(label, value):
+                pdf.cell(100, 8, txt(label), 1, 0, 'R')
+                pdf.cell(90, 8, txt(str(value)), 1, 1, 'C')
 
-        lat, lng = st.session_state['coords']
-        loc_str = f"{lat:.5f}, {lng:.5f}" if lat!=0 else "غير محدد"
-        
-        row("الموقع والإحداثيات", f"{location_key} ({loc_str})")
-        row("حجم النظام المقترح", f"{actual_sys:.2f} kWp")
-        row("عدد الألواح", f"{panels}")
-        row("إجمالي الاستهلاك السنوي", f"{fmt(total_cons)} kWh")
-        row("الإنتاج المتوقع (السنة 1)", f"{fmt(total_prod_year)} kWh")
-        pdf.ln(5)
+            lat, lng = st.session_state['coords']
+            loc_str = f"{lat:.5f}, {lng:.5f}" if lat!=0 else "-"
+            
+            row("الموقع والإحداثيات", f"{location_key} ({loc_str})")
+            row("حجم النظام المقترح", f"{actual_sys:.2f} kWp")
+            row("عدد الألواح", f"{panels}")
+            row("إجمالي الاستهلاك السنوي", f"{fmt(total_cons)} kWh")
+            row("الإنتاج المتوقع (السنة 1)", f"{fmt(total_prod_year)} kWh")
+            pdf.ln(5)
 
-        # 3. Financial Table
-        pdf.set_font('Amiri', '', 14)
-        pdf.set_fill_color(240, 240, 240)
-        pdf.cell(0, 10, txt("2. التحليل المالي والاستثماري"), 0, 1, 'R', True)
-        pdf.ln(2)
-        
-        pdf.set_font('Amiri', '', 12)
-        row("إجمالي التكلفة (CAPEX)", f"{fmt(total_invest)} {t['currency']}")
-        row("التوفير السنوي", f"{fmt(annual_savings_y1)} {t['currency']}")
-        row("صافي القيمة الحالية (NPV)", f"{fmt(npv_value)} {t['currency']}")
-        row("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {t['currency']}/kWh")
-        row("فترة استرداد رأس المال", f"{payback_years:.1f} Years")
-        
-        # 4. Visual Charts (Drawn in PDF)
-        chart_data = {
-            txt("الاستهلاك"): total_cons,
-            txt("الإنتاج"): total_prod_year
-        }
-        pdf.draw_chart(txt("مقارنة الاستهلاك والإنتاج (kWh)"), chart_data, max(total_cons, total_prod_year))
-        
-        chart_data_money = {
-            txt("تكلفة النظام"): total_invest,
-            txt("أرباح 25 سنة"): sum(cash_flow)
-        }
-        pdf.draw_chart(txt("العائد الاقتصادي (ريال)"), chart_data_money, max(total_invest, sum(cash_flow)))
+            # 3. Financial Table
+            pdf.set_font('Amiri', '', 14)
+            pdf.set_fill_color(240, 240, 240)
+            pdf.cell(0, 10, txt("2. التحليل المالي والاستثماري"), 0, 1, 'R', True)
+            pdf.ln(2)
+            
+            pdf.set_font('Amiri', '', 12)
+            row("إجمالي التكلفة (CAPEX)", f"{fmt(total_invest)} {t['currency']}")
+            row("التوفير السنوي", f"{fmt(annual_savings_y1)} {t['currency']}")
+            row("صافي القيمة الحالية (NPV)", f"{fmt(npv_value)} {t['currency']}")
+            row("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {t['currency']}/kWh")
+            row("فترة استرداد رأس المال", f"{payback_years:.1f} Years")
+            
+            # 4. Visual Charts
+            chart_data = {
+                txt("الاستهلاك"): total_cons,
+                txt("الإنتاج"): total_prod_year
+            }
+            pdf.draw_chart(txt("مقارنة الاستهلاك والإنتاج (kWh)"), chart_data, max(total_cons, total_prod_year))
+            
+            chart_data_money = {
+                txt("تكلفة النظام"): total_invest,
+                txt("أرباح 25 سنة"): sum(cash_flow)
+            }
+            pdf.draw_chart(txt("العائد الاقتصادي (ريال)"), chart_data_money, max(total_invest, sum(cash_flow)))
 
-        # 5. Recommendation
-        pdf.ln(10)
-        pdf.set_font('Amiri', '', 12)
-        pdf.set_text_color(0, 100, 0)
-        clean_advice = advice.replace('🚀', '').replace('✅', '').replace('⚠️', '').replace('🤖', '').replace('**', '')
-        pdf.multi_cell(0, 8, txt("توصية المستشار: " + clean_advice), 0, 'R')
+            # 5. Recommendation
+            pdf.ln(10)
+            pdf.set_font('Amiri', '', 12)
+            pdf.set_text_color(0, 100, 0)
+            
+            # تنظيف نص النصيحة تماماً قبل الكتابة
+            safe_advice = clean_text(advice)
+            pdf.multi_cell(0, 8, txt("توصية المستشار: " + safe_advice), 0, 'R')
 
-        return pdf.output(dest='S').encode('latin-1')
+            # حفظ الملف
+            pdf.output(tmp_file.name)
+            return tmp_file.name
 
-    st.download_button(t["download_pdf"], create_pdf(), "Solar_Proposal.pdf", "application/pdf", type="primary")
+    # زر التحميل
+    tmp_pdf_path = create_pdf()
+    with open(tmp_pdf_path, "rb") as f:
+        st.download_button(t["download_pdf"], f, "Solar_Proposal.pdf", "application/pdf", type="primary")
 
 else:
     st.info("النظام جاهز. ابدأ بتحديد الموقع على الخريطة.")
