@@ -44,20 +44,14 @@ def calculate_area_m2(geojson_geometry):
     poly_m = Polygon(new_coords)
     return poly_m.area
 
-# --- كلاس PDF المطور (تصميم احترافي) ---
+# --- كلاس PDF المطور (تم إصلاح خطأ الخطوط) ---
 class PDF(FPDF):
     def header(self):
-        # خلفية الترويسة
         self.set_fill_color(*PRIMARY_COLOR)
         self.rect(0, 0, 210, 40, 'F')
-        
-        # إضافة شعار (نصي حالياً)
         self.set_font('Arial', 'B', 24)
         self.set_text_color(255, 255, 255)
-        # بما أن الهيدر يتكرر، نستخدم نصاً إنجليزي أو عربي بسيط
         self.cell(0, 20, "Solar Energy Proposal", 0, 1, 'C')
-        
-        # خط فاصل ذهبي
         self.set_fill_color(*ACCENT_COLOR)
         self.rect(0, 38, 210, 2, 'F')
         self.ln(20)
@@ -71,29 +65,32 @@ class PDF(FPDF):
     def draw_chart(self, title, data_dict, max_val):
         """دالة لرسم مخطط بياني داخل الـ PDF"""
         self.ln(5)
-        self.set_font('Amiri', '', 14)
+        # استخدام الخط العربي للعنوان
+        self.set_font('Amiri', '', 14) 
         self.set_text_color(0, 0, 0)
         self.cell(0, 10, title, 0, 1, 'R')
         self.ln(2)
         
-        # إعدادات الرسم
         bar_height = 8
         start_x = 20
         max_width = 100
         
-        self.set_font('Arial', '', 10)
+        # --- التعديل الهام هنا: استخدام الخط العربي للمسميات أيضاً ---
+        self.set_font('Amiri', '', 10) 
+        
         for label, value in data_dict.items():
-            # النص
+            # النص (Label)
             self.set_xy(130, self.get_y())
             self.cell(60, bar_height, label, 0, 0, 'R')
             
             # الشريط
             bar_width = (value / max_val) * max_width
             self.set_xy(125 - bar_width, self.get_y() + 1)
-            self.set_fill_color(*ACCENT_COLOR) # لون الشريط
+            self.set_fill_color(*ACCENT_COLOR)
             self.rect(125 - bar_width, self.get_y(), bar_width, bar_height - 2, 'F')
             
-            # القيمة الرقمية
+            # القيمة الرقمية (نستخدم Arial للأرقام لأنها أوضح، أو نبقي Amiri)
+            # سنبقي Amiri للأمان لتجنب التبديل المستمر
             self.set_xy(start_x, self.get_y() - 1)
             self.cell(20, bar_height, f"{int(value):,}", 0, 1, 'L')
 
@@ -164,16 +161,18 @@ with st.sidebar:
     monthly_bills = []
     
     if input_method == t["mode_12m"]:
-        months_display = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'] if language == "العربية" else ['Jan','Feb','...']
+        months_display = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'] if language == "العربية" else ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
         cols = st.columns(3)
         for i, m in enumerate(months_display):
             with cols[i%3]:
+                # قيم افتراضية ذكية (صيف عالي)
                 def_val = 2000.0 if i in [5,6,7,8] else 800.0
                 val = st.number_input(m, value=def_val, key=i)
                 monthly_bills.append(val)
                 
-    else: 
+    else: # Mode Average
         avg_val = st.number_input(t["bill_avg"], value=1500.0, step=100.0)
+        # تطبيق التوزيع الموسمي السعودي القياسي تلقائياً
         factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7]
         avg_factor = sum(factors) / 12
         monthly_bills = [avg_val * (f / avg_factor) for f in factors]
@@ -232,6 +231,7 @@ if run_calc:
     
     total_invest = solar_cost + batt_cost
     
+    # المحاكاة
     prod_curve_kwh = []
     total_prod_year = 0
     mon_prod_base = actual_sys * sun_hours * 30 * 0.80 
@@ -242,6 +242,7 @@ if run_calc:
         prod_curve_kwh.append(monthly_gen)
         total_prod_year += monthly_gen
 
+    # التحليل المالي
     years_range = range(1, 26)
     cash_flow = []
     total_prod_lifecycle = 0
@@ -280,118 +281,4 @@ if run_calc:
     st.subheader(t["results"])
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("حجم النظام (kWp)", f"{actual_sys:.2f}")
-    c2.metric("عدد الألواح", f"{panels}")
-    c3.metric("التكلفة الكلية", f"{fmt(total_invest)} {t['currency']}")
-    c4.metric("التوفير السنوي", f"{fmt(annual_savings_y1)} {t['currency']}")
-    
-    st.markdown("---")
-    st.markdown("##### **المؤشرات المالية المتقدمة**")
-    f1, f2, f3, f4 = st.columns(4)
-    f1.metric("العائد (ROI)", f"{int(roi)}%")
-    f2.metric("الاسترداد (Payback)", f"{payback_years} Years")
-    f3.metric("صافي القيمة (NPV)", f"{fmt(npv_value)} {t['currency']}", help=t["npv_help"])
-    f4.metric("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {t['currency']}", help=t["lcoe_help"])
-
-    # --- الذكاء الاصطناعي ---
-    st.markdown("---")
-    st.subheader(t["ai_opinion"])
-    
-    advice = ""
-    if roi > 250: advice = f"🚀 **مشروع ممتاز (A+):** العميل سيسترد رأس المال في {payback_years:.1f} سنوات فقط. الأرباح المتوقعة خلال 25 سنة تتجاوز {fmt(sum(cash_flow))} ريال."
-    elif roi > 100: advice = f"✅ **مشروع مجدي (B):** النظام يغطي الاستهلاك بشكل جيد. الاستثمار آمن بمعدل عائد {int(roi)}%."
-    else: advice = f"⚠️ **جدوى منخفضة (C):** التوفير السنوي ({fmt(annual_savings_y1)}) قليل مقارنة بالتكلفة. حاول تقليل عدد الألواح."
-    
-    st.info(advice, icon="🤖")
-
-    # --- الرسوم البيانية ---
-    st.markdown("---")
-    fig = go.Figure()
-    months_ar = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
-    fig.add_trace(go.Bar(x=months_ar, y=prod_curve_kwh, name='الإنتاج الشمسي', marker_color='#FBC02D'))
-    fig.add_trace(go.Scatter(x=months_ar, y=cons_kwh, name='استهلاك العميل', line=dict(color='#D32F2F', width=3)))
-    fig.update_layout(title=t["chart_title"], yaxis_title="kWh")
-    st.plotly_chart(fig, use_container_width=True)
-
-    # --- PDF GENERATION (PROFESSIONAL DESIGN) ---
-    def create_pdf():
-        pdf = PDF()
-        pdf.add_page()
-        
-        # Load Font
-        font_path = 'Amiri-Regular.ttf'
-        if os.path.exists(font_path):
-            pdf.add_font('Amiri', '', font_path, uni=True)
-            pdf.set_font('Amiri', '', 12)
-        else: pdf.set_font("Arial", size=12)
-        
-        def txt(text):
-            if language == "العربية" and os.path.exists(font_path): return get_display(arabic_reshaper.reshape(text))
-            return text
-
-        # 1. Company Title in Arabic inside PDF body (since header is English/Static)
-        pdf.set_font('Amiri', '', 18)
-        pdf.cell(0, 10, txt(COMPANY_NAME), 0, 1, 'C')
-        pdf.set_font('Amiri', '', 14)
-        pdf.cell(0, 10, txt(REPORT_TITLE), 0, 1, 'C')
-        pdf.ln(5)
-
-        # 2. Project Summary Table
-        pdf.set_fill_color(240, 240, 240)
-        pdf.set_font('Amiri', '', 14)
-        pdf.cell(0, 10, txt("1. ملخص المشروع والبيانات"), 0, 1, 'R', True)
-        pdf.ln(2)
-        
-        pdf.set_font('Amiri', '', 12)
-        
-        def row(label, value):
-            pdf.cell(100, 8, txt(label), 1, 0, 'R')
-            pdf.cell(90, 8, txt(str(value)), 1, 1, 'C')
-
-        lat, lng = st.session_state['coords']
-        loc_str = f"{lat:.5f}, {lng:.5f}" if lat!=0 else "غير محدد"
-        
-        row("الموقع والإحداثيات", f"{location_key} ({loc_str})")
-        row("حجم النظام المقترح", f"{actual_sys:.2f} kWp")
-        row("إجمالي الاستهلاك السنوي", f"{fmt(total_cons)} kWh")
-        row("الإنتاج المتوقع (السنة 1)", f"{fmt(total_prod_year)} kWh")
-        pdf.ln(5)
-
-        # 3. Financial Table
-        pdf.set_font('Amiri', '', 14)
-        pdf.set_fill_color(240, 240, 240)
-        pdf.cell(0, 10, txt("2. التحليل المالي والاستثماري"), 0, 1, 'R', True)
-        pdf.ln(2)
-        
-        pdf.set_font('Amiri', '', 12)
-        row("إجمالي التكلفة (CAPEX)", f"{fmt(total_invest)} {t['currency']}")
-        row("التوفير السنوي", f"{fmt(annual_savings_y1)} {t['currency']}")
-        row("صافي القيمة الحالية (NPV)", f"{fmt(npv_value)} {t['currency']}")
-        row("فترة استرداد رأس المال", f"{payback_years:.1f} Years")
-        
-        # 4. Visual Charts (Drawn in PDF)
-        # Prepare Data for Chart
-        chart_data = {
-            txt("الاستهلاك"): total_cons,
-            txt("الإنتاج"): total_prod_year
-        }
-        pdf.draw_chart(txt("مقارنة الاستهلاك والإنتاج (kWh)"), chart_data, max(total_cons, total_prod_year))
-        
-        chart_data_money = {
-            txt("تكلفة النظام"): total_invest,
-            txt("أرباح 25 سنة"): sum(cash_flow)
-        }
-        pdf.draw_chart(txt("العائد الاقتصادي (ريال)"), chart_data_money, max(total_invest, sum(cash_flow)))
-
-        # 5. Recommendation
-        pdf.ln(10)
-        pdf.set_font('Amiri', '', 12)
-        pdf.set_text_color(0, 100, 0)
-        clean_advice = advice.replace('🚀', '').replace('✅', '').replace('⚠️', '').replace('🤖', '').replace('**', '')
-        pdf.multi_cell(0, 8, txt("توصية المستشار: " + clean_advice), 0, 'R')
-
-        return pdf.output(dest='S').encode('latin-1')
-
-    st.download_button(t["download_pdf"], create_pdf(), "Solar_Proposal.pdf", "application/pdf", type="primary")
-
-else:
-    st.info("النظام جاهز. ابدأ بتحديد الموقع على الخريطة.")
+    c2.metric("عدد الأل
