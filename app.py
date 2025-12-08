@@ -187,4 +187,5 @@ if run_calc:
         st.markdown("---")
         # الرسم البياني
         mon_prod = actual_system_kw * sun_hours * 30 * 0.9
-        prod_curve = [mon_prod * (1 + (i-6)*0.1
+prod_curve = [mon_prod * (1 + (i-6)*0.1) if i<6 else mon_prod * (1 - (i-6)*0.1) for i in range(12)]
+
