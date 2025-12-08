@@ -6,22 +6,26 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 import os
 import numpy_financial as npf
+import folium
+from streamlit_folium import st_folium
 
-# --- إعدادات الصفحة (للموظفين) ---
-st.set_page_config(page_title="Solar Sales Tool (Internal)", layout="wide", page_icon="⚡")
+# --- إعدادات الصفحة ---
+st.set_page_config(page_title="Solar Sales Tool (Map Edition)", layout="wide", page_icon="🌍")
 
 # --- النصوص والترجمة ---
 translations = {
     "English": {
         "title": "⚡ Solar Sales & Engineering Tool (Internal Use)",
         "sidebar_title": "Client Data Entry",
+        "map_title": "📍 Customer Location",
+        "coords": "Coordinates",
         "input_mode": "Input Method",
         "mode_avg": "Simple Average Bill",
         "mode_12m": "Detailed 12-Month Bills",
         "bill_avg": "Average Monthly Bill (SAR)",
         "area": "Roof Area (m²)",
         "cost_per_kw": "System Cost/kW (SAR)",
-        "city": "Location",
+        "city": "Region / City",
         "price_kwh": "Tariff Rate (SAR/kWh)",
         "inflation": "Electricity Inflation (%)",
         "degradation": "Panel Degradation (%)",
@@ -50,13 +54,15 @@ translations = {
     "العربية": {
         "title": "⚡ نظام مبيعات وهندسة الطاقة الشمسية (داخلي)",
         "sidebar_title": "إدخال بيانات العميل",
+        "map_title": "📍 تحديد موقع العميل",
+        "coords": "الإحداثيات المختارة",
         "input_mode": "طريقة الإدخال",
         "mode_avg": "فاتورة متوسطة (تقريبي)",
         "mode_12m": "فواتير 12 شهر (دقيق)",
         "bill_avg": "متوسط الفاتورة (ريال)",
         "area": "المساحة المتاحة (م²)",
         "cost_per_kw": "تكلفة الكيلوواط (ريال)",
-        "city": "الموقع",
+        "city": "المنطقة / المدينة",
         "price_kwh": "سعر الشريحة (ريال/kWh)",
         "inflation": "التضخم المتوقع (%)",
         "degradation": "تناقص الألواح (%)",
@@ -91,32 +97,50 @@ with st.sidebar:
     curr = t["currency"]
     
     st.header(t["sidebar_title"])
+
+    # --- إضافة الخريطة (جديد!) ---
+    with st.expander(t["map_title"], expanded=True):
+        # إحداثيات افتراضية (وسط المملكة)
+        default_location = [24.7136, 46.6753]
+        
+        # إنشاء الخريطة
+        m = folium.Map(location=default_location, zoom_start=5)
+        # السماح بالنقر
+        m.add_child(folium.LatLngPopup())
+        
+        map_output = st_folium(m, height=250, width=280)
+        
+        # التقاط الإحداثيات عند النقر
+        lat, lng = 0.0, 0.0
+        if map_output['last_clicked']:
+            lat = map_output['last_clicked']['lat']
+            lng = map_output['last_clicked']['lng']
+            st.success(f"{t['coords']}: {lat:.4f}, {lng:.4f}")
+        else:
+            st.info("اضغط على الخريطة لتحديد الموقع")
+
+    st.divider()
     
-    # اختيار طريقة الإدخال (الميزة الجديدة)
+    # اختيار طريقة الإدخال
     input_method = st.radio(t["input_mode"], [t["mode_12m"], t["mode_avg"]])
     
     monthly_bills_input = []
     
     if input_method == t["mode_12m"]:
-        st.info("أدخل قيمة الفاتورة (بالريال) لكل شهر:" if language=="العربية" else "Enter bill amount (SAR) for each month:")
-        # شبكة إدخال (4 صفوف × 3 أعمدة) لسهولة الإدخال
+        # شبكة إدخال (4 صفوف × 3 أعمدة)
         months_en = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         months_ar = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
         months_labels = months_ar if language == "العربية" else months_en
         
-        # إنشاء حاوية الإدخال
         cols = st.columns(3)
         for i, m_label in enumerate(months_labels):
             with cols[i % 3]:
-                # قيم افتراضية تحاكي الواقع (صيف عالي، شتاء منخفض)
                 default_val = 2000.0 if i in [5,6,7,8] else 800.0
                 val = st.number_input(f"{m_label}", min_value=0.0, value=default_val, key=f"m_{i}")
                 monthly_bills_input.append(val)
                 
     else:
-        # الطريقة القديمة (متوسط)
         avg_bill = st.number_input(t["bill_avg"], min_value=0.0, value=1500.0, step=100.0)
-        # نحول المتوسط إلى قائمة 12 شهر (ثابتة أو منحنى بسيط)
         monthly_bills_input = [avg_bill] * 12
 
     st.divider()
@@ -160,20 +184,14 @@ with st.sidebar:
 st.title(t["title"])
 
 if run_calc:
-    # 1. تحليل الاستهلاك (Load Analysis)
-    # تحويل الفواتير (ريال) إلى استهلاك (كيلوواط)
+    # 1. تحليل الاستهلاك
     cons_curve_kwh = [bill / price_per_kwh if price_per_kwh > 0 else 0 for bill in monthly_bills_input]
     total_yearly_consumption = sum(cons_curve_kwh)
     avg_monthly_consumption = total_yearly_consumption / 12
     
     # 2. تحديد حجم النظام
-    # في حالة الـ 12 شهر، نستخدم المعدل السنوي مع معامل تغطية 100% للسنة
     daily_avg_consumption = avg_monthly_consumption / 30
-    
-    # ملاحظة: في الاستخدام المهني، قد نصمم النظام بناءً على "شهر الذروة" أو "المتوسط"
-    # هنا سنستخدم المتوسط السنوي مع معامل تغطية 1.1 لضمان تغطية جيدة
     required_system_kw = (daily_avg_consumption / sun_hours) * 1.1
-    
     max_system_by_area = roof_area / 7
     final_system_kw = min(required_system_kw, max_system_by_area)
     
@@ -186,8 +204,6 @@ if run_calc:
     
     # 3. البطاريات
     if want_batteries:
-        # البطارية تغطي الاستهلاك الليلي (تقديرياً 40% من اليومي) أو حسب الساعات
-        # هنا حسب الساعات المحددة للأحمال الحرجة أو الاستهلاك المتوسط
         load_per_hour = daily_avg_consumption / 24
         battery_size_kwh = load_per_hour * backup_hours
         battery_cost_total = battery_size_kwh * cost_battery_unit
@@ -204,29 +220,24 @@ if run_calc:
     cumulative_val = -total_investment
     
     current_price = price_per_kwh
-    yearly_prod = actual_system_kw * sun_hours * 365 * 0.9 # إنتاج السنة الأولى
+    yearly_prod = actual_system_kw * sun_hours * 365 * 0.9
     
-    # توزيع الإنتاج شهرياً للرسم البياني (منحنى الجرس تقريباً)
     mon_prod_avg = yearly_prod / 12
     prod_curve_kwh = []
     for i in range(12):
-        # معامل حرارة بسيط (الصيف أقل كفاءة قليلاً)
         if i in [5, 6, 7, 8]: efficiency_factor = 0.94
         elif i in [2, 3, 9, 10]: efficiency_factor = 1.05
         else: efficiency_factor = 1.0
         prod_curve_kwh.append(mon_prod_avg * efficiency_factor)
         
-    # ضبط المجموع
     scale = yearly_prod / sum(prod_curve_kwh)
     prod_curve_kwh = [x * scale for x in prod_curve_kwh]
 
     for year in years_range:
-        # التوفير: نفترض أن كل ما ينتج يتم استهلاكه (أو مقاصته مع الشبكة Net Metering)
-        # ولكن لا يمكن توفير أكثر من الاستهلاك السنوي (نظرياً)
         useful_production = min(yearly_prod, total_yearly_consumption)
         savings = useful_production * current_price
         
-        om_cost = total_investment * 0.01 # صيانة 1%
+        om_cost = total_investment * 0.01
         net_savings = savings - om_cost
         
         cash_flow.append(net_savings)
@@ -274,7 +285,7 @@ if run_calc:
     
     st.divider()
     
-    # تفصيل السعر (للموظف)
+    # تفصيل السعر
     st.subheader(t["breakdown"])
     solar_panels_cost = solar_investment * 0.45
     inverter_cost = solar_investment * 0.15
@@ -295,9 +306,7 @@ if run_calc:
     months_lbl = months_ar if language == "العربية" else months_en
 
     fig1 = go.Figure()
-    # رسم الاستهلاك (بيانات العميل الحقيقية)
     fig1.add_trace(go.Scatter(x=months_lbl, y=cons_curve_kwh, name='Client Consumption', line=dict(color='#D32F2F', width=3)))
-    # رسم الإنتاج
     fig1.add_trace(go.Bar(x=months_lbl, y=prod_curve_kwh, name='Solar Production', marker_color='#FBC02D'))
     fig1.update_layout(title=t["chart_title"], yaxis_title="kWh", height=450)
     st.plotly_chart(fig1, use_container_width=True)
@@ -308,7 +317,7 @@ if run_calc:
     fig2.add_hline(y=0, line_dash="dash", line_color="red")
     st.plotly_chart(fig2, use_container_width=True)
 
-    # --- PDF Report (Employee/Client Version) ---
+    # --- PDF Report with Location ---
     def create_pro_pdf():
         pdf = FPDF()
         pdf.add_page()
@@ -327,7 +336,7 @@ if run_calc:
             return text
 
         # Header
-        pdf.set_fill_color(50, 50, 50) # Dark Grey for Professional look
+        pdf.set_fill_color(50, 50, 50)
         pdf.rect(0, 0, 210, 30, 'F')
         pdf.set_text_color(255, 255, 255)
         pdf.set_font_size(18)
@@ -344,12 +353,18 @@ if run_calc:
             pdf.set_font('Amiri', '', 11)
             pdf.cell(80, 7, txt=txt(str(value)), border=1, ln=True, align='C')
 
-        # 1. Project Data
+        # 1. Project Data (Updated with Coordinates)
         pdf.set_fill_color(220, 220, 220)
         pdf.set_font_size(12)
         pdf.cell(190, 8, txt=txt("1. Client & Location Data"), ln=True, fill=True, align='R' if language=="العربية" else 'L')
         
         table_row(t["city"], location_key.split('/')[0])
+        # طباعة الإحداثيات إذا تم تحديدها
+        if lat != 0.0 and lng != 0.0:
+            table_row("Map Coordinates", f"{lat:.5f}, {lng:.5f}")
+        else:
+            table_row("Map Coordinates", "Not Selected")
+            
         table_row("Total Annual Consumption", f"{int(total_yearly_consumption):,} kWh")
         table_row(t["area"], f"{roof_area} m2")
         pdf.ln(4)
@@ -371,10 +386,9 @@ if run_calc:
         table_row(t["roi"], f"{roi_percent:.1f}%")
         pdf.ln(4)
 
-        # 4. Monthly Breakdown (New Feature for Employees)
+        # 4. Monthly Breakdown
         if input_method == t["mode_12m"]:
             pdf.cell(190, 8, txt=txt("4. Monthly Consumption Analysis"), ln=True, fill=True, align='R' if language=="العربية" else 'L')
-            # Header
             pdf.set_font_size(10)
             pdf.cell(95, 6, txt=txt("Month"), border=1, align='C')
             pdf.cell(95, 6, txt=txt("Consumption (kWh)"), border=1, ln=True, align='C')
@@ -404,4 +418,4 @@ if run_calc:
     )
 
 else:
-    st.info("System Ready. Enter client bills and click Analysis.")
+    st.info("System Ready. Select location on map and enter data.")
