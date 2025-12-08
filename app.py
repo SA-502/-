@@ -5,20 +5,23 @@ from fpdf import FPDF
 import arabic_reshaper
 from bidi.algorithm import get_display
 import os
+import numpy_financial as npf
 
 # --- إعدادات الصفحة ---
-st.set_page_config(page_title="Solar KSA Classic", layout="wide", page_icon="☀️")
+st.set_page_config(page_title="Advanced Solar KSA", layout="wide", page_icon="☀️")
 
-# --- النصوص والبيانات السعودية ---
+# --- النصوص والترجمة ---
 translations = {
     "English": {
-        "title": "☀️ Saudi Solar Feasibility Tool",
+        "title": "☀️ Saudi Solar Feasibility Tool (Advanced)",
         "sidebar_title": "Project Inputs",
         "bill": "Monthly Bill (SAR)",
         "area": "Roof Area (m²)",
         "cost_per_kw": "System Cost/kW (SAR)",
         "city": "City (Saudi Arabia)",
         "price_kwh": "Tariff Rate (SAR/kWh)",
+        "inflation": "Electricity Inflation (%)",
+        "degradation": "Panel Degradation (%)",
         "calculate": "Calculate Results",
         "results": "Feasibility Analysis",
         "system_size": "Required System Size",
@@ -30,20 +33,22 @@ translations = {
         "npv": "Net Present Value (NPV)",
         "co2": "CO2 Saved (25 Years)",
         "chart_title": "Production vs Consumption",
-        "chart_savings": "Cumulative Savings (25 Years)",
+        "chart_cashflow": "Cumulative Cash Flow (25 Years)",
         "download_pdf": "Download Professional PDF",
         "currency": "SAR",
         "panels_count": "Panels",
         "rec_title": "Technical Recommendations"
     },
     "العربية": {
-        "title": "☀️ أداة جدوى الطاقة الشمسية (السعودية)",
+        "title": "☀️ أداة جدوى الطاقة الشمسية المتقدمة",
         "sidebar_title": "مدخلات المشروع",
         "bill": "فاتورة الكهرباء الشهرية (ريال)",
         "area": "مساحة السطح المتاحة (متر مربع)",
         "cost_per_kw": "تكلفة النظام للكيلوواط (ريال)",
         "city": "المدينة / المنطقة",
         "price_kwh": "تعرفة الكهرباء (ريال/ك.و.س)",
+        "inflation": "نسبة التضخم السنوي للكهرباء (%)",
+        "degradation": "نسبة تناقص كفاءة الألواح (%)",
         "calculate": "احسب النتائج",
         "results": "تحليل الجدوى الاقتصادية",
         "system_size": "حجم المحطة المطلوب",
@@ -55,7 +60,7 @@ translations = {
         "npv": "صافي القيمة الحالية (NPV)",
         "co2": "توفير CO2 (25 سنة)",
         "chart_title": "مقارنة الإنتاج والاستهلاك المتوقع",
-        "chart_savings": "التوفير التراكمي (25 سنة)",
+        "chart_cashflow": "تحليل التدفق النقدي التراكمي (25 سنة)",
         "download_pdf": "تحميل التقرير الفني (PDF)",
         "currency": "ر.س",
         "panels_count": "لوح",
@@ -70,11 +75,11 @@ with st.sidebar:
     curr = t["currency"]
     
     st.header(t["sidebar_title"])
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Flag_of_Saudi_Arabia.svg/320px-Flag_of_Saudi_Arabia.svg.png", width=50)
     
+    # المدخلات الأساسية
     monthly_bill = st.number_input(t["bill"], min_value=0.0, value=1500.0, step=100.0)
     
-    # 1. قائمة المدن السعودية فقط (مع ساعات الشمس الدقيقة)
+    # قائمة مدن السعودية
     saudi_cities = {
         "الرياض / Riyadh (5.8h)": 5.8,
         "جدة / Jeddah (6.0h)": 6.0,
@@ -97,6 +102,13 @@ with st.sidebar:
     price_per_kwh = st.number_input(t["price_kwh"], min_value=0.01, value=0.18, format="%.3f")
     cost_per_kw = st.number_input(t["cost_per_kw"], min_value=1000.0, value=3200.0)
     
+    # --- خانات التضخم والتدهور (رجعت لك!) ---
+    st.markdown("---")
+    with st.expander("إعدادات متقدمة / Advanced Settings", expanded=True):
+        inflation_rate = st.slider(t["inflation"], 0.0, 10.0, 3.0, 0.1) / 100
+        degradation_rate = st.slider(t["degradation"], 0.0, 2.0, 0.5, 0.1) / 100
+        discount_rate = 0.05
+    
     # زر الحساب الكلاسيكي
     run_calc = st.button(t["calculate"], type="primary")
 
@@ -111,7 +123,7 @@ if run_calc:
     max_system_by_area = roof_area / 7
     final_system_kw = min(required_system_kw, max_system_by_area)
     
-    # 2. أحجام الألواح القياسية (Standard 450W)
+    # ألواح 450 واط
     panel_wattage = 450
     num_panels = int((final_system_kw * 1000) / panel_wattage)
     if num_panels < 1: num_panels = 1
@@ -119,10 +131,8 @@ if run_calc:
     
     total_investment = actual_system_kw * cost_per_kw
     
-    # محاكاة مالية
+    # محاكاة مالية متقدمة (تستخدم مدخلات التضخم من القائمة الجانبية)
     years_range = range(1, 26)
-    inflation_rate = 0.025
-    degradation_rate = 0.005
     cash_flow = []
     cumulative_cash_flow = []
     cumulative_val = -total_investment
@@ -135,6 +145,8 @@ if run_calc:
         cash_flow.append(savings)
         cumulative_val += savings
         cumulative_cash_flow.append(cumulative_val)
+        
+        # تطبيق التضخم والتدهور الذي اخترته
         current_price *= (1 + inflation_rate)
         yearly_prod *= (1 - degradation_rate)
         
@@ -150,14 +162,14 @@ if run_calc:
             
     roi_percent = ((total_savings_25y - total_investment) / total_investment) * 100
     
-    # حساب NPV يدوياً لضمان عدم حدوث أخطاء
+    # حساب NPV باستخدام numpy_financial
     npv_value = -total_investment
     for i, flow in enumerate(cash_flow):
-        npv_value += flow / ((1.05) ** (i + 1))
+        npv_value += flow / ((1 + discount_rate) ** (i + 1))
         
     co2_saved_tons = (actual_system_kw * sun_hours * 365 * 25 * 0.5) / 1000
 
-    # --- عرض النتائج (Classic UI) ---
+    # --- عرض النتائج (الواجهة البسيطة) ---
     st.divider()
     st.subheader(t["results"])
     
@@ -176,8 +188,6 @@ if run_calc:
 
     # --- الرسومات البيانية ---
     mon_prod = actual_system_kw * sun_hours * 30 * 0.9
-    
-    # إصلاح مشكلة الأقواس السابقة
     prod_curve = []
     for i in range(12):
         if i < 6: val = mon_prod * (1 + (i-6)*0.1)
@@ -197,11 +207,11 @@ if run_calc:
     
     fig2 = go.Figure()
     fig2.add_trace(go.Scatter(x=list(years_range), y=cumulative_cash_flow, fill='tozeroy', name='Cumulative Savings', line=dict(color='#2E7D32')))
-    fig2.update_layout(title=t["chart_savings"], xaxis_title="Year", yaxis_title=curr, height=400)
+    fig2.update_layout(title=t["chart_cashflow"], xaxis_title="Year", yaxis_title=curr, height=400)
     fig2.add_hline(y=0, line_dash="dash", line_color="red")
     st.plotly_chart(fig2, use_container_width=True)
 
-    # --- 3. إنشاء ملف PDF المطور (Saudi Edition) ---
+    # --- ملف PDF (بدون شعار، وبدون علم، مع جداول وتوصيات) ---
     def create_saudi_pdf():
         pdf = FPDF()
         pdf.add_page()
@@ -214,7 +224,6 @@ if run_calc:
             pdf.set_font('Amiri', '', 12)
         else:
             pdf.set_font("Arial", size=12)
-            st.warning("Font file 'Amiri-Regular.ttf' missing.")
 
         def txt(text):
             if language == "العربية" and has_arabic_font:
@@ -230,7 +239,6 @@ if run_calc:
         pdf.cell(190, 5, txt=txt("تقرير فني ومالي - Technical & Financial Proposal"), ln=True, align='C')
         pdf.ln(15)
         
-        # دالة الجدول المحسن
         def table_row(label, value):
             pdf.set_font('Amiri', '', 12)
             pdf.cell(100, 8, txt=txt(label), border=1, align='R' if language=="العربية" else 'L')
@@ -238,7 +246,7 @@ if run_calc:
             pdf.cell(90, 8, txt=txt(str(value)), border=1, ln=True, align='C')
 
         # القسم 1
-        pdf.set_fill_color(46, 125, 50) # أخضر سعودي
+        pdf.set_fill_color(46, 125, 50) 
         pdf.set_text_color(255, 255, 255)
         pdf.set_font_size(14)
         pdf.cell(190, 10, txt=txt("1. بيانات المشروع"), ln=True, fill=True, align='R' if language=="العربية" else 'L')
@@ -247,6 +255,8 @@ if run_calc:
         table_row(t["city"], location_key.split('/')[0])
         table_row(t["bill"], f"{monthly_bill} {curr}")
         table_row(t["area"], f"{roof_area} m2")
+        # إضافة التضخم للتقرير ليكون دقيقاً
+        table_row(t["inflation"], f"{inflation_rate*100} %")
         pdf.ln(5)
 
         # القسم 2
@@ -270,7 +280,7 @@ if run_calc:
         table_row(t["savings"], f"{annual_savings:,.0f} {curr}")
         table_row(t["payback"], f"{payback_years:.1f} Years")
         table_row(t["roi"], f"{roi_percent:.1f}%")
-        table_row("إجمالي التوفير (25 سنة)", f"{total_savings_25y:,.0f} {curr}")
+        table_row(t["npv"], f"{npv_value:,.0f} {curr}")
 
         # التوصيات
         pdf.ln(10)
