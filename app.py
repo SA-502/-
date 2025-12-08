@@ -187,5 +187,118 @@ if run_calc:
         st.markdown("---")
         # الرسم البياني
         mon_prod = actual_system_kw * sun_hours * 30 * 0.9
-prod_curve = [mon_prod * (1 + (i-6)*0.1) if i<6 else mon_prod * (1 - (i-6)*0.1) for i in range(12)]
+        prod_curve = [mon_prod * (1 + (i-6)*0.1) if i<6 else mon_prod * (1 - (i-6)*0.1) for i in range(12)] 
+        cons_curve = [monthly_consumption_kwh] * 12
+        months_labels = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
+        
+        fig_bar = go.Figure()
+        fig_bar.add_trace(go.Bar(x=months_labels, y=prod_curve, name='الإنتاج الشمسي', marker_color='#FDD835'))
+        fig_bar.add_trace(go.Scatter(x=months_labels, y=cons_curve, name='استهلاكك الحالي', line=dict(color='#1565C0', width=3)))
+        fig_bar.update_layout(title=t["chart_title"], yaxis_title="kWh", height=400)
+        st.plotly_chart(fig_bar, use_container_width=True)
 
+    with tab2:
+        k1, k2, k3 = st.columns(3)
+        # هنا تم التصحيح (إزالة inverse=True)
+        k1.metric(t["payback"], f"{payback_years:.1f} Years")
+        k2.metric(t["roi"], f"{roi_percent:,.0f}%")
+        k3.metric(t["npv"], f"{npv_value:,.0f} {curr}")
+        
+        fig_cf = go.Figure()
+        fig_cf.add_trace(go.Scatter(x=list(years_range), y=cumulative_cash_flow, fill='tozeroy', 
+                                  mode='lines', name='التدفق التراكمي', line=dict(color='#43A047', width=3)))
+        fig_cf.add_hline(y=0, line_dash="dash", line_color="red")
+        fig_cf.update_layout(xaxis_title="السنوات", yaxis_title=curr, hovermode="x unified", height=400)
+        st.plotly_chart(fig_cf, use_container_width=True)
+
+    with tab3:
+        st.markdown(f"### 📄 {t['download_pdf']}")
+        st.info("التقرير المحدث: تم تحسين التنسيق ليشمل جدولاً بالبيانات المالية وتوصيات خاصة بالمملكة.")
+        
+        def create_saudi_pdf():
+            pdf = FPDF()
+            pdf.add_page()
+            font_path = 'Amiri-Regular.ttf'
+            if os.path.exists(font_path):
+                pdf.add_font('Amiri', '', font_path, uni=True)
+                pdf.set_font('Amiri', '', 12)
+            else:
+                pdf.set_font("Arial", size=12)
+
+            def txt(text):
+                if language == "العربية" and os.path.exists(font_path):
+                    return get_display(arabic_reshaper.reshape(text))
+                return text
+
+            # الترويسة
+            pdf.set_fill_color(245, 245, 245)
+            pdf.rect(0, 0, 210, 30, 'F')
+            pdf.set_font_size(22)
+            pdf.cell(190, 15, txt=txt(t["title"]), ln=True, align='C')
+            pdf.set_font_size(10)
+            pdf.cell(190, 5, txt=txt("تقرير جدوى فني ومالي - Technical & Financial Proposal"), ln=True, align='C')
+            pdf.ln(15)
+
+            # دالة لرسم صف في الجدول
+            def table_row(label, value):
+                pdf.set_font('Amiri', '', 12)
+                pdf.cell(100, 8, txt=txt(label), border=1, align='R' if language=="العربية" else 'L')
+                pdf.set_font('Amiri', '', 12) 
+                pdf.cell(90, 8, txt=txt(str(value)), border=1, ln=True, align='C')
+
+            # 1. بيانات الموقع والمشروع
+            pdf.set_fill_color(46, 125, 50) 
+            pdf.set_text_color(255, 255, 255)
+            pdf.set_font_size(14)
+            pdf.cell(190, 10, txt=txt("1. ملخص المشروع والموقع"), ln=True, fill=True, align='R')
+            pdf.set_text_color(0, 0, 0)
+            
+            table_row(t["city"], location_key.split('/')[0])
+            table_row(t["bill"], f"{monthly_bill} {curr}")
+            table_row(t["area"], f"{roof_area} m2")
+            pdf.ln(5)
+
+            # 2. المواصفات الفنية
+            pdf.set_fill_color(46, 125, 50)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(190, 10, txt=txt("2. المواصفات الفنية للنظام"), ln=True, fill=True, align='R')
+            pdf.set_text_color(0, 0, 0)
+            
+            table_row(t["system_size"], f"{actual_system_kw:.2f} kW")
+            table_row(t["panels"], f"{num_panels}")
+            table_row("إنتاج السنة الأولى", f"{int(yearly_production_kwh):,} kWh")
+            pdf.ln(5)
+
+            # 3. التحليل المالي
+            pdf.set_fill_color(46, 125, 50)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(190, 10, txt=txt("3. المؤشرات المالية والاقتصادية"), ln=True, fill=True, align='R')
+            pdf.set_text_color(0, 0, 0)
+            
+            table_row(t["cost"], f"{total_investment:,.0f} {curr}")
+            table_row(t["savings_1st"], f"{first_year_savings:,.0f} {curr}")
+            table_row(t["payback"], f"{payback_years:.1f} Years")
+            table_row(t["roi"], f"{roi_percent:,.0f}%")
+            table_row("إجمالي التوفير (25 سنة)", f"{total_savings_25y:,.0f} {curr}")
+
+            # 4. التوصيات
+            pdf.ln(10)
+            pdf.set_text_color(46, 125, 50)
+            pdf.set_font_size(14)
+            pdf.cell(190, 8, txt=txt(t["rec_title"]), ln=True, align='R')
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font_size(11)
+            
+            recs = [
+                "- ينصح باستخدام ألواح من نوع Mono-PERC لكفاءة أعلى في أجواء المملكة.",
+                "- يجب التأكد من تنظيف الألواح مرتين شهرياً بسبب الغبار.",
+                "- النظام يغطي معظم استهلاكك ويوفر عائداً ممتازاً مقارنة بالبنك.",
+                f"- العائد البيئي يعادل زراعة {int(co2_tons * 5)} شجرة تقريباً."
+            ]
+            for r in recs:
+                pdf.cell(190, 6, txt=txt(r), ln=True, align='R')
+
+            return pdf.output(dest='S').encode('latin-1')
+
+        pdf_data = create_saudi_pdf()
+        st.download_button(label="📥 " + t["download_pdf"], data=pdf_data, file_name="Saudi_Solar_Study.pdf", mime="application/pdf", type="primary", use_container_width=True)
