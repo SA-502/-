@@ -13,7 +13,7 @@ from shapely.geometry import shape
 import math
 
 # ==========================================
-# 🏷️ إعدادات الشركة والعنوان
+# 🏷️ منطقة تعديل العناوين والأسماء (عدل هنا)
 # ==========================================
 PAGE_TITLE = "النظام الشامل للطاقة الشمسية"
 COMPANY_NAME = "شركة حلول الطاقة المتقدمة"
@@ -39,7 +39,7 @@ def calculate_area_m2(geojson_geometry):
     poly_m = Polygon(new_coords)
     return poly_m.area
 
-# --- النصوص والترجمة ---
+# --- النصوص والترجمة (تم التأكد من جميع المفاتيح) ---
 translations = {
     "English": {
         "sidebar_title": "Project Inputs",
@@ -63,7 +63,11 @@ translations = {
         "results": "Feasibility Analysis",
         "breakdown": "Cost Breakdown",
         "ai_opinion": "🤖 AI Smart Recommendation",
-        "download_pdf": "Download Official Report"
+        "download_pdf": "Download Official Report",
+        "chart_title": "Load Profile vs Solar Generation",
+        "chart_cashflow": "Cumulative Cash Flow",
+        "currency": "SAR",
+        "panels_count": "Panels",
     },
     "العربية": {
         "sidebar_title": "مدخلات المشروع",
@@ -87,7 +91,11 @@ translations = {
         "results": "نتائج الدراسة",
         "breakdown": "تفاصيل التكلفة",
         "ai_opinion": "🤖 رأي المستشار الذكي (AI)",
-        "download_pdf": "تحميل التقرير الرسمي (PDF)"
+        "download_pdf": "تحميل التقرير الرسمي (PDF)",
+        "chart_title": "تحليل الأحمال مقابل الإنتاج الشمسي",
+        "chart_cashflow": "تحليل التدفق النقدي التراكمي",
+        "currency": "ر.س",
+        "panels_count": "لوح",
     }
 }
 
@@ -95,6 +103,7 @@ translations = {
 with st.sidebar:
     language = st.radio("Language / اللغة", ["العربية", "English"])
     t = translations[language]
+    curr = t["currency"]
     
     st.header(t["sidebar_title"])
 
@@ -117,6 +126,7 @@ with st.sidebar:
         )
         draw.add_to(m)
         
+        st.caption("استخدم 'المضلع' لرسم السطح وتفادي العوائق. اضغط زر ملء الشاشة ↗️")
         map_output = st_folium(m, height=350, width=300)
         
         if map_output and 'last_active_drawing' in map_output and map_output['last_active_drawing']:
@@ -136,30 +146,27 @@ with st.sidebar:
     monthly_bills = []
     
     if input_method == t["mode_seasonal"]:
-        # الخيار الذكي: يأخذ المتوسط ويوزعه حسب الصيف والشتاء
         avg_val = st.number_input(t["bill_avg"], value=1500.0, step=100.0)
         cons_type = st.selectbox(t["consumer_type"], [t["res"], t["com"]])
         
-        # معادلة توزيع الأحمال (السحر الهندسي)
         if cons_type == t["res"]:
-            # الصيف (5-9) يضرب في معامل عالي
             factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7]
         else:
             factors = [0.9, 0.9, 1.0, 1.0, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 0.9, 0.9]
             
-        # ضبط المتوسط
         avg_factor = sum(factors) / 12
         monthly_bills = [avg_val * (f / avg_factor) for f in factors]
         
     elif input_method == t["mode_12m"]:
         months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
+        months_display = months if language == "العربية" else ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
         cols = st.columns(3)
-        for i, m in enumerate(months):
+        for i, m in enumerate(months_display):
             with cols[i%3]:
                 val = st.number_input(m, value=(2000.0 if i in [5,6,7,8] else 800.0), key=i)
                 monthly_bills.append(val)
                 
-    else: # Average Simple
+    else:
         val = st.number_input(t["bill_avg"], value=1500.0)
         monthly_bills = [val]*12
 
@@ -168,23 +175,24 @@ with st.sidebar:
     location_key = st.selectbox(t["city"], list(saudi_cities.keys()))
     sun_hours = saudi_cities[location_key]
     
-    # المساحة من الخريطة
     default_area = st.session_state['calculated_area'] if st.session_state['calculated_area'] > 0 else 300.0
     roof_area = st.number_input(t["area"], value=float(default_area))
     
-    # الأسعار
     price_kwh = st.number_input("سعر الكيلوواط", value=0.18, format="%.3f")
-    cost_kw = st.number_input(t["cost_per_kw"], value=3000.0)
+    cost_kw = st.number_input("تكلفة النظام/kW", value=3000.0)
     
     # 4. البطاريات والتقنية
     st.markdown("---")
     with st.expander("⚙️ إعدادات متقدمة / Advanced"):
         want_battery = st.checkbox(t["add_battery"])
+        batt_cost_unit = 1500.0 # Default outside check
+        batt_hours = 4 # Default
         if want_battery:
             batt_hours = st.slider(t["battery_hours"], 1, 12, 4)
             batt_cost_unit = st.number_input("تكلفة البطارية (SAR/kWh)", value=1500.0)
         inflation_rate = st.slider("التضخم / Inflation", 0.0, 10.0, 3.0, 0.1) / 100
         degradation_rate = 0.005
+        discount_rate = 0.05
     
     run_calc = st.button(t["calculate"], type="primary")
 
@@ -193,11 +201,12 @@ st.title(PAGE_TITLE)
 
 if run_calc:
     # 1. الحسابات الأساسية
+    price_kwh = st.session_state.get("price_kwh", 0.18) # Ensure price_kwh is available
+    
     cons_kwh = [b/price_kwh for b in monthly_bills]
     total_cons = sum(cons_kwh)
     daily_avg = (total_cons/12)/30
     
-    # حجم النظام
     req_sys = (daily_avg/sun_hours)*1.15
     max_sys = roof_area/7
     final_sys = min(req_sys, max_sys)
@@ -224,6 +233,20 @@ if run_calc:
     roi = ((savings*25 - total_invest)/total_invest)*100
     payback = total_invest/savings if savings > 0 else 25
     
+    # المحاكاة لـ 25 سنة (للرسم البياني)
+    years_range = range(1, 26)
+    cumulative_cash_flow = []
+    cumulative_val = -total_invest
+    current_price_sim = price_kwh
+    yearly_prod_sim = yearly_prod
+    
+    for year in years_range:
+        net_savings = (min(yearly_prod_sim, total_cons) * current_price_sim) - (total_invest * 0.01)
+        cumulative_val += net_savings
+        cumulative_cash_flow.append(cumulative_val)
+        current_price_sim *= (1 + inflation_rate)
+        yearly_prod_sim *= (1 - degradation_rate)
+    
     # --- العرض ---
     st.subheader(t["results"])
     c1, c2, c3, c4 = st.columns(4)
@@ -238,44 +261,34 @@ if run_calc:
     st.markdown("---")
     st.subheader(t["ai_opinion"])
     
-    advice_text = ""
-    if roi > 250:
-        advice_text = f"""
-        **مشروع ممتاز جداً! (تصنيف A+)** 🚀
-        بناءً على تحليل البيانات، العميل يستهلك كمية كبيرة من الطاقة (خاصة في الصيف إذا تم اختيار النمط السكني)، وتكلفة النظام بالنسبة للتوفير ممتازة.
-        - **فترة الاسترداد:** {payback:.1f} سنوات فقط.
-        - **العائد:** يتجاوز {roi:.0f}%، وهو استثمار آمن ومربح.
-        - **التوصية:** المضي قدماً في التعاقد فوراً.
-        """
-        st.success(advice_text, icon="🤖")
-    elif roi > 100:
-        advice_text = f"""
-        **مشروع مجدي (تصنيف B)** ✅
-        النظام سيغطي الاحتياج بشكل جيد، وفترة الاسترداد ({payback:.1f} سنوات) مقبولة جداً في السوق.
-        ينصح بالتركيز على جودة الألواح لضمان استدامة التوفير.
-        """
-        st.info(advice_text, icon="🤖")
-    else:
-        advice_text = f"""
-        **الجدوى منخفضة (تصنيف C)** ⚠️
-        الاستهلاك قد يكون قليلاً أو المساحة غير كافية لتغطية الفاتورة بالكامل.
-        ينصح بمراجعة الفواتير مرة أخرى أو تقليل حجم النظام لتقليل التكلفة الأولية.
-        """
-        st.warning(advice_text, icon="🤖")
+    if roi > 250: advice_text = f"**مشروع ممتاز جداً! (تصنيف A+)** 🚀 العائد الاستثماري يتجاوز {roi:.0f}%، وينصح بالتعاقد الفوري."
+    elif roi > 100: advice_text = f"**مشروع مجدي (تصنيف B)** ✅ فترة الاسترداد ({payback:.1f} سنوات) قياسية. ينصح بالتركيز على جودة الألواح."
+    else: advice_text = f"**الجدوى منخفضة (تصنيف C)** ⚠️ فترة الاسترداد طويلة ({payback:.1f} سنوات). ينصح بمراجعة الاستهلاك أو تقديم خصم."
+        
+    st.info(advice_text, icon="🤖")
 
     st.markdown("---")
     
-    # الرسم البياني
+    # 1. الرسم البياني للاحمال والإنتاج (Fixing the key error here)
     fig = go.Figure()
-    months_ar = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
-    # توزيع الإنتاج (تقريبي)
+    months_display = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'] if language == "العربية" else ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    
     prod_monthly = [yearly_prod/12 * (1.1 if i in [2,3,9,10] else 0.95) for i in range(12)]
     
-    fig.add_trace(go.Bar(x=months_ar, y=prod_monthly, name='إنتاج الطاقة', marker_color='#FBC02D'))
-    fig.add_trace(go.Scatter(x=months_ar, y=cons_kwh, name='استهلاك العميل', line=dict(color='#D32F2F', width=3)))
-    fig.update_layout(title=t["chart_title"], yaxis_title="kWh")
+    fig.add_trace(go.Bar(x=months_display, y=prod_monthly, name='إنتاج الطاقة' if language=="العربية" else 'Solar Production', marker_color='#FBC02D'))
+    fig.add_trace(go.Scatter(x=months_display, y=cons_kwh, name='استهلاك العميل' if language=="العربية" else 'Client Consumption', line=dict(color='#D32F2F', width=3)))
+    
+    # Line 276 is now fixed by ensuring 'chart_title' is in 't'
+    fig.update_layout(title=t["chart_title"], yaxis_title="kWh") 
     st.plotly_chart(fig, use_container_width=True)
     
+    # 2. الرسم البياني للتدفق النقدي
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=list(years_range), y=cumulative_cash_flow, fill='tozeroy', name='Cumulative Savings' if language=="English" else 'التوفير التراكمي', line=dict(color='#2E7D32')))
+    fig2.update_layout(title=t["chart_cashflow"], xaxis_title="Year", yaxis_title="SAR" if language=="English" else "ريال", height=400)
+    fig2.add_hline(y=0, line_dash="dash", line_color="red")
+    st.plotly_chart(fig2, use_container_width=True)
+
     # تفصيل السعر
     st.subheader(t["breakdown"])
     breakdown = pd.DataFrame({
@@ -283,7 +296,7 @@ if run_calc:
         "التكلفة (ريال)": [f"{solar_cost*0.45:,.0f}", f"{solar_cost*0.15:,.0f}", f"{solar_cost*0.40:,.0f}", f"{batt_cost:,.0f}"]
     })
     st.table(breakdown)
-
+    
     # --- PDF ---
     def create_pdf():
         pdf = FPDF()
@@ -327,8 +340,7 @@ if run_calc:
         row("التوفير السنوي المتوقع", f"{savings:,.0f} SAR")
         row("فترة استرداد رأس المال", f"{payback:.1f} Years")
         
-        if want_battery:
-            row("نظام البطاريات", f"{batt_size:.1f} kWh")
+        if want_battery: row("نظام البطاريات", f"{batt_size:.1f} kWh")
 
         pdf.ln(5)
         # إضافة توصية الذكاء الاصطناعي للتقرير
@@ -339,4 +351,6 @@ if run_calc:
         return pdf.output(dest='S').encode('latin-1')
 
     st.download_button(t["download_pdf"], create_pdf(), "Solar_Report.pdf", "application/pdf", type="primary")
-    
+
+else:
+    st.info("System Ready. Draw roof area on map and enter data.")
