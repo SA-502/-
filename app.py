@@ -22,9 +22,9 @@ REPORT_TITLE = "عرض فني ومالي - Technical & Financial Proposal"
 
 st.set_page_config(page_title=PAGE_TITLE, layout="wide", page_icon="☀️")
 
-# --- دالة تنسيق الأرقام (بدون كسور) ---
+# --- دالة تنسيق الأرقام ---
 def fmt(num):
-    return f"{int(num):,}" # 12,500
+    return f"{int(num):,}"
 
 # --- دالة حساب المساحة ---
 def calculate_area_m2(geojson_geometry):
@@ -148,10 +148,8 @@ with st.sidebar:
         batt_hours = st.slider(t["battery_hours"], 1, 12, 4)
         batt_cost_unit = st.number_input("سعر البطارية (SAR/kWh)", value=1500.0)
     
-    # إعدادات مخفية (للمختصين) مع شروحات
     with st.expander("⚙️ إعدادات متقدمة"):
         inflation_rate = st.slider("التضخم / Inflation", 0.0, 10.0, 3.0, 0.1) / 100
-        st.caption("معدل زيادة أسعار الكهرباء سنوياً.")
         degradation_rate = 0.005
         discount_rate = 0.05
     
@@ -184,13 +182,13 @@ if run_calc:
     
     total_invest = solar_cost + batt_cost
     
-    # المحاكاة مع الفواقد الحرارية
+    # المحاكاة
     prod_curve_kwh = []
     total_prod_year = 0
-    mon_prod_base = actual_sys * sun_hours * 30 * 0.80 # كفاءة 80%
+    mon_prod_base = actual_sys * sun_hours * 30 * 0.80 
     
     for i in range(12):
-        temp_factor = 0.85 if i in [5, 6, 7, 8] else 1.0 # حرارة الصيف
+        temp_factor = 0.85 if i in [5, 6, 7, 8] else 1.0 
         monthly_gen = mon_prod_base * temp_factor
         prod_curve_kwh.append(monthly_gen)
         total_prod_year += monthly_gen
@@ -198,38 +196,28 @@ if run_calc:
     # التحليل المالي
     years_range = range(1, 26)
     cash_flow = []
-    cumulative_cash_flow = []
-    cumulative_val = -total_invest
+    total_prod_lifecycle = 0
+    inflation_rate = 0.03
+    degradation_rate = 0.005
     current_price_sim = price_kwh
     yearly_prod_sim = total_prod_year
-    total_prod_lifecycle = 0
     
     for year in years_range:
         net_savings = (min(yearly_prod_sim, total_cons) * current_price_sim) - (total_invest * 0.01)
         cash_flow.append(net_savings)
-        cumulative_val += net_savings
-        cumulative_cash_flow.append(cumulative_val)
-        
         total_prod_lifecycle += min(yearly_prod_sim, total_cons)
         current_price_sim *= (1 + inflation_rate)
         yearly_prod_sim *= (1 - degradation_rate)
         
     annual_savings_y1 = cash_flow[0] + (total_invest * 0.01)
     
-    # LCOE & NPV & Payback
     lcoe = (total_invest + (total_invest * 0.01 * 25)) / total_prod_lifecycle if total_prod_lifecycle > 0 else 0
     npv_value = npf.npv(discount_rate, [-total_invest] + cash_flow)
     
-    payback_years = 0
-    for i, val in enumerate(cumulative_cash_flow):
-        if val >= 0:
-            payback_years = i + 1
-            break
-    if payback_years == 0: payback_years = 25
-            
     roi = ((sum(cash_flow) / total_invest) * 100)
+    payback_years = total_invest / annual_savings_y1 if annual_savings_y1 > 0 else 25
 
-    # --- النتائج (أرقام نظيفة) ---
+    # --- النتائج ---
     st.subheader(t["results"])
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("حجم النظام (kWp)", f"{actual_sys:.2f}")
@@ -241,26 +229,20 @@ if run_calc:
     st.markdown("##### **المؤشرات المالية المتقدمة**")
     f1, f2, f3, f4 = st.columns(4)
     f1.metric("العائد (ROI)", f"{int(roi)}%")
-    f2.metric("الاسترداد (Payback)", f"{payback_years} Years")
+    f2.metric("الاسترداد (Payback)", f"{payback_years:.1f} Years")
     f3.metric("صافي القيمة (NPV)", f"{fmt(npv_value)} {curr}", help=t["npv_help"])
     f4.metric("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {curr}", help=t["lcoe_help"])
 
-    # --- الذكاء الاصطناعي (مع الشرح) ---
+    # --- الذكاء الاصطناعي ---
     st.markdown("---")
     st.subheader(t["ai_opinion"])
     
     advice = ""
-    if roi > 250: advice = f"🚀 **مشروع ممتاز (A+):** العميل سيسترد رأس المال في {payback_years} سنوات فقط. الأرباح المتوقعة خلال 25 سنة تتجاوز {fmt(sum(cash_flow))} ريال."
+    if roi > 250: advice = f"🚀 **مشروع ممتاز (A+):** العميل سيسترد رأس المال في {payback_years:.1f} سنوات فقط. الأرباح المتوقعة خلال 25 سنة تتجاوز {fmt(sum(cash_flow))} ريال."
     elif roi > 100: advice = f"✅ **مشروع مجدي (B):** النظام يغطي الاستهلاك بشكل جيد. الاستثمار آمن بمعدل عائد {int(roi)}%."
     else: advice = f"⚠️ **جدوى منخفضة (C):** التوفير السنوي ({fmt(annual_savings_y1)}) قليل مقارنة بالتكلفة. حاول تقليل عدد الألواح."
     
-    # إضافة شرح للمصطلحات
-    ai_explanation = f"""
-    \n\n--- **شرح المصطلحات:** ---
-    * **LCOE ({lcoe:.3f}):** تعني أن كل كيلوواط تنتجه من شمسك يكلفك {lcoe:.3f} ريال، بينما تشتريه من الدولة بـ {price_kwh} ريال. الفرق هو ربحك!
-    * **NPV ({fmt(npv_value)}):** هذا هو الربح الصافي الحقيقي للمشروع بفلوس "اليوم"، بعد خصم التضخم. إذا كان موجباً، فالمشروع رابح 100%.
-    """
-    st.info(advice + ai_explanation, icon="🤖")
+    st.info(advice, icon="🤖")
 
     # --- الرسوم البيانية ---
     st.markdown("---")
@@ -271,7 +253,7 @@ if run_calc:
     fig.update_layout(title=t["chart_title"], yaxis_title="kWh")
     st.plotly_chart(fig, use_container_width=True)
 
-    # --- PDF محسن (مع رسوميات داخلية) ---
+    # --- PDF (Fixed: Removed Emojis) ---
     def create_pdf():
         pdf = FPDF()
         pdf.add_page()
@@ -323,35 +305,35 @@ if run_calc:
         row("التوفير السنوي (Year 1)", f"{fmt(annual_savings_y1)} SAR")
         row("صافي القيمة الحالية (NPV)", f"{fmt(npv_value)} SAR")
         row("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} SAR/kWh")
-        row("فترة استرداد رأس المال", f"{payback_years} Years")
+        row("فترة استرداد رأس المال", f"{payback_years:.1f} Years")
         
-        # 3. رسم بياني بسيط داخل PDF (Visual Savings)
+        # 3. Chart
         pdf.ln(10)
         pdf.set_font_size(14)
-        pdf.cell(190, 10, txt=txt("3. مقارنة التكلفة والعائد (Visual Chart)"), ln=True, fill=True, align='R')
+        pdf.cell(190, 10, txt=txt("3. الرسم البياني للجدوى"), ln=True, fill=True, align='R')
         pdf.ln(5)
         
-        # رسم مستطيلات تمثل الأرقام
         max_val = max(total_invest, sum(cash_flow))
         w_invest = (total_invest / max_val) * 150
         w_savings = (sum(cash_flow) / max_val) * 150
         
         pdf.set_font_size(10)
-        # شريط التكلفة (أحمر)
         pdf.set_fill_color(231, 76, 60)
         pdf.cell(30, 10, txt=txt("التكلفة:"), align='R')
         pdf.cell(w_invest, 10, txt="", fill=True)
         pdf.cell(30, 10, txt=f"{fmt(total_invest)} SAR", ln=True)
         
-        # شريط الأرباح (أخضر)
         pdf.set_fill_color(46, 204, 113)
         pdf.cell(30, 10, txt=txt("أرباح 25 سنة:"), align='R')
         pdf.cell(w_savings, 10, txt="", fill=True)
         pdf.cell(30, 10, txt=f"{fmt(sum(cash_flow))} SAR", ln=True)
         
+        # 4. Recommendation (Cleaned Text)
         pdf.ln(10)
-        pdf.set_text_color(100, 100, 100)
-        pdf.multi_cell(190, 6, txt=txt("توصية المستشار: " + advice.replace('**','')), border=1, align='R')
+        # تنظيف النص من الإيموجي والنجوم لتجنب الخطأ
+        clean_advice = advice.replace('🚀', '').replace('✅', '').replace('⚠️', '').replace('🤖', '').replace('**', '')
+        pdf.set_text_color(0, 100, 0)
+        pdf.multi_cell(190, 6, txt=txt("توصية المستشار: " + clean_advice), border=1, align='R')
 
         return pdf.output(dest='S').encode('latin-1')
 
