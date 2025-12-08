@@ -46,29 +46,29 @@ def calculate_area_m2(geojson_geometry):
 # --- النصوص ---
 translations = {
     "English": {
-        "sidebar_title": "Project Inputs", "map_title": "📍 High-Res Site Survey", "area_calc": "Drawn Area (m²)",
-        "input_mode": "Calculation Method", "mode_avg": "Simple Average", "mode_seasonal": "Seasonal Simulation",
-        "mode_12m": "12-Month Bills", "consumer_type": "Consumer Type", "res": "Residential",
-        "com": "Commercial", "bill_avg": "Avg Monthly Bill (SAR)", "area": "Usable Roof Area (m²)",
+        "sidebar_title": "Project Inputs", "map_title": "📍 Site Survey", "area_calc": "Drawn Area (m²)",
+        "input_mode": "Bill Input Method", 
+        "mode_12m": "12-Month Bills (Exact)", "mode_avg": "Average Bill (Estimate)",
+        "bill_avg": "Avg Monthly Bill (SAR)", "area": "Usable Roof Area (m²)",
         "cost_per_kw": "System Cost/kW (SAR)", "city": "City", "battery_section": "🔋 Battery Storage", 
         "add_battery": "Add Batteries?", "battery_hours": "Backup Hours", "calculate": "Run Analysis", 
-        "results": "Feasibility Analysis", "breakdown": "Cost Breakdown", "ai_opinion": "🤖 AI Analysis & Definitions", 
+        "results": "Feasibility Analysis", "breakdown": "Cost Breakdown", "ai_opinion": "🤖 AI Analysis", 
         "download_pdf": "Download Report", "chart_title": "Load vs Generation", "chart_cashflow": "Cash Flow", 
         "currency": "SAR", "panels_count": "Panels", "coords": "Coordinates", "lcoe_help": "Cost to produce 1 kWh over 25 years",
         "npv_help": "Total profit value in today's money"
     },
     "العربية": {
         "sidebar_title": "مدخلات المشروع", "map_title": "📍 معاينة الموقع (أقمار صناعية)", "area_calc": "المساحة المرسومة (م²)",
-        "input_mode": "طريقة الحساب", "mode_avg": "متوسط بسيط (سريع)", "mode_seasonal": "محاكاة موسمية (دقيق)",
-        "mode_12m": "إدخال 12 فاتورة (فعلي)", "consumer_type": "نوع النشاط", "res": "سكني (تكييف عالي)",
-        "com": "تجاري (متوازن)", "bill_avg": "متوسط الفاتورة (ريال)", "area": "مساحة السطح (م²)",
+        "input_mode": "طريقة إدخال الفواتير", 
+        "mode_12m": "إدخال 12 فاتورة (دقيق جداً)", "mode_avg": "متوسط الفاتورة (تقديري)",
+        "bill_avg": "متوسط الفاتورة الشهرية (ريال)", "area": "مساحة السطح (م²)",
         "cost_per_kw": "تكلفة الكيلوواط (ريال)", "city": "المدينة", "battery_section": "🔋 نظام البطاريات", 
         "add_battery": "إضافة بطاريات؟", "battery_hours": "ساعات التشغيل الليلي", "calculate": "بدء التحليل الشامل", 
-        "results": "نتائج الدراسة", "breakdown": "تفاصيل التكلفة", "ai_opinion": "🤖 رأي المستشار الذكي (مع الشرح)", 
+        "results": "نتائج الدراسة", "breakdown": "تفاصيل التكلفة", "ai_opinion": "🤖 رأي المستشار الذكي", 
         "download_pdf": "تحميل التقرير الرسمي (PDF)", "chart_title": "تحليل الأحمال مقابل الإنتاج", 
         "chart_cashflow": "تحليل التدفق النقدي", "currency": "ر.س", "panels_count": "لوح", "coords": "الإحداثيات",
-        "lcoe_help": "LCOE: هي التكلفة الفعلية عليك لإنتاج كيلوواط واحد من الطاقة الشمسية طوال عمر المشروع.",
-        "npv_help": "NPV: صافي القيمة الحالية، وهو مقياس للربح الحقيقي بعد خصم التضخم وقيمة المال الزمنية."
+        "lcoe_help": "LCOE: تكلفة إنتاج الكيلوواط الواحد من نظامك.",
+        "npv_help": "NPV: صافي الربح الحقيقي للمشروع بأسعار اليوم."
     }
 }
 
@@ -106,27 +106,26 @@ with st.sidebar:
 
     st.divider()
     
-    # 2. الفواتير
-    input_method = st.radio(t["input_mode"], [t["mode_seasonal"], t["mode_12m"], t["mode_avg"]])
+    # 2. الفواتير (تم إزالة نوع النشاط وتبسيط الخيارات)
+    input_method = st.radio(t["input_mode"], [t["mode_12m"], t["mode_avg"]])
     monthly_bills = []
     
-    if input_method == t["mode_seasonal"]:
-        avg_val = st.number_input(t["bill_avg"], value=1500.0, step=100.0)
-        cons_type = st.selectbox(t["consumer_type"], [t["res"], t["com"]])
-        factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7] if cons_type == t["res"] else [0.9, 0.9, 1.0, 1.0, 1.1, 1.1, 1.1, 1.1, 1.1, 1.0, 0.9, 0.9]
-        avg_factor = sum(factors) / 12
-        monthly_bills = [avg_val * (f / avg_factor) for f in factors]
-        
-    elif input_method == t["mode_12m"]:
-        months_display = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'] if language == "العربية" else ['Jan','Feb','...']
+    if input_method == t["mode_12m"]:
+        months_display = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'] if language == "العربية" else ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
         cols = st.columns(3)
         for i, m in enumerate(months_display):
             with cols[i%3]:
-                val = st.number_input(m, value=(2000.0 if i in [5,6,7,8] else 800.0), key=i)
+                # قيم افتراضية ذكية (صيف عالي)
+                def_val = 2000.0 if i in [5,6,7,8] else 800.0
+                val = st.number_input(m, value=def_val, key=i)
                 monthly_bills.append(val)
-    else:
-        val = st.number_input(t["bill_avg"], value=1500.0)
-        monthly_bills = [val]*12
+                
+    else: # Mode Average
+        avg_val = st.number_input(t["bill_avg"], value=1500.0, step=100.0)
+        # تطبيق التوزيع الموسمي السعودي القياسي تلقائياً (بدون سؤال العميل)
+        factors = [0.6, 0.7, 0.8, 1.1, 1.4, 1.5, 1.5, 1.5, 1.3, 1.0, 0.8, 0.7]
+        avg_factor = sum(factors) / 12
+        monthly_bills = [avg_val * (f / avg_factor) for f in factors]
 
     # 3. الموقع والمساحة
     saudi_cities = {"الرياض":5.8, "جدة":6.0, "الدمام":5.6, "مكة":6.2, "المدينة":6.3, "أبها":5.9, "تبوك":6.1, "حائل":6.0, "جازان":5.9, "القصيم":5.8}
@@ -215,23 +214,34 @@ if run_calc:
     npv_value = npf.npv(discount_rate, [-total_invest] + cash_flow)
     
     roi = ((sum(cash_flow) / total_invest) * 100)
-    payback_years = total_invest / annual_savings_y1 if annual_savings_y1 > 0 else 25
+    payback_years = 0
+    cum_cf = []
+    curr = -total_invest
+    for cf in cash_flow:
+        curr += cf
+        cum_cf.append(curr)
+    
+    for i, val in enumerate(cum_cf):
+        if val >= 0:
+            payback_years = i + 1
+            break
+    if payback_years == 0: payback_years = 25
 
     # --- النتائج ---
     st.subheader(t["results"])
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("حجم النظام (kWp)", f"{actual_sys:.2f}")
     c2.metric("عدد الألواح", f"{panels}")
-    c3.metric("التكلفة الكلية", f"{fmt(total_invest)} {curr}")
-    c4.metric("التوفير السنوي", f"{fmt(annual_savings_y1)} {curr}")
+    c3.metric("التكلفة الكلية", f"{fmt(total_invest)} {t['currency']}")
+    c4.metric("التوفير السنوي", f"{fmt(annual_savings_y1)} {t['currency']}")
     
     st.markdown("---")
     st.markdown("##### **المؤشرات المالية المتقدمة**")
     f1, f2, f3, f4 = st.columns(4)
     f1.metric("العائد (ROI)", f"{int(roi)}%")
-    f2.metric("الاسترداد (Payback)", f"{payback_years:.1f} Years")
-    f3.metric("صافي القيمة (NPV)", f"{fmt(npv_value)} {curr}", help=t["npv_help"])
-    f4.metric("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {curr}", help=t["lcoe_help"])
+    f2.metric("الاسترداد (Payback)", f"{payback_years} Years")
+    f3.metric("صافي القيمة (NPV)", f"{fmt(npv_value)} {t['currency']}", help=t["npv_help"])
+    f4.metric("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {t['currency']}", help=t["lcoe_help"])
 
     # --- الذكاء الاصطناعي ---
     st.markdown("---")
@@ -242,7 +252,12 @@ if run_calc:
     elif roi > 100: advice = f"✅ **مشروع مجدي (B):** النظام يغطي الاستهلاك بشكل جيد. الاستثمار آمن بمعدل عائد {int(roi)}%."
     else: advice = f"⚠️ **جدوى منخفضة (C):** التوفير السنوي ({fmt(annual_savings_y1)}) قليل مقارنة بالتكلفة. حاول تقليل عدد الألواح."
     
-    st.info(advice, icon="🤖")
+    ai_explanation = f"""
+    \n\n--- **شرح المصطلحات:** ---
+    * **LCOE ({lcoe:.3f}):** تكلفة إنتاجك للكيلوواط الواحد (كلما قل الرقم، كان أفضل).
+    * **NPV ({fmt(npv_value)}):** صافي الربح الحقيقي بأسعار اليوم.
+    """
+    st.info(advice + ai_explanation, icon="🤖")
 
     # --- الرسوم البيانية ---
     st.markdown("---")
@@ -253,7 +268,7 @@ if run_calc:
     fig.update_layout(title=t["chart_title"], yaxis_title="kWh")
     st.plotly_chart(fig, use_container_width=True)
 
-    # --- PDF (Fixed: Removed Emojis) ---
+    # --- PDF ---
     def create_pdf():
         pdf = FPDF()
         pdf.add_page()
@@ -267,7 +282,6 @@ if run_calc:
             if language == "العربية" and os.path.exists(font_path): return get_display(arabic_reshaper.reshape(text))
             return text
 
-        # Header
         pdf.set_fill_color(44, 62, 80)
         pdf.rect(0, 0, 210, 40, 'F')
         pdf.set_text_color(255, 255, 255)
@@ -282,7 +296,6 @@ if run_calc:
             pdf.cell(110, 8, txt=txt(k), border=1, align='R')
             pdf.cell(80, 8, txt=txt(str(v)), border=1, ln=True, align='C')
 
-        # 1. البيانات
         pdf.set_fill_color(230, 230, 230)
         pdf.set_font_size(14)
         pdf.cell(190, 10, txt=txt("1. ملخص المشروع والبيانات"), ln=True, fill=True, align='R')
@@ -297,20 +310,18 @@ if run_calc:
         row("الإنتاج المتوقع (السنة 1)", f"{fmt(total_prod_year)} kWh")
         pdf.ln(5)
 
-        # 2. المالي
         pdf.set_font_size(14)
         pdf.cell(190, 10, txt=txt("2. التحليل المالي والاستثماري"), ln=True, fill=True, align='R')
         pdf.set_font_size(12)
-        row("إجمالي التكلفة (CAPEX)", f"{fmt(total_invest)} SAR")
-        row("التوفير السنوي (Year 1)", f"{fmt(annual_savings_y1)} SAR")
-        row("صافي القيمة الحالية (NPV)", f"{fmt(npv_value)} SAR")
-        row("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} SAR/kWh")
-        row("فترة استرداد رأس المال", f"{payback_years:.1f} Years")
+        row("إجمالي التكلفة (CAPEX)", f"{fmt(total_invest)} {t['currency']}")
+        row("التوفير السنوي (Year 1)", f"{fmt(annual_savings_y1)} {t['currency']}")
+        row("صافي القيمة الحالية (NPV)", f"{fmt(npv_value)} {t['currency']}")
+        row("تكلفة الكيلوواط (LCOE)", f"{lcoe:.3f} {t['currency']}/kWh")
+        row("فترة استرداد رأس المال", f"{payback_years} Years")
         
-        # 3. Chart
         pdf.ln(10)
         pdf.set_font_size(14)
-        pdf.cell(190, 10, txt=txt("3. الرسم البياني للجدوى"), ln=True, fill=True, align='R')
+        pdf.cell(190, 10, txt=txt("3. مقارنة التكلفة والعائد"), ln=True, fill=True, align='R')
         pdf.ln(5)
         
         max_val = max(total_invest, sum(cash_flow))
@@ -321,23 +332,21 @@ if run_calc:
         pdf.set_fill_color(231, 76, 60)
         pdf.cell(30, 10, txt=txt("التكلفة:"), align='R')
         pdf.cell(w_invest, 10, txt="", fill=True)
-        pdf.cell(30, 10, txt=f"{fmt(total_invest)} SAR", ln=True)
+        pdf.cell(30, 10, txt=f"{fmt(total_invest)}", ln=True)
         
         pdf.set_fill_color(46, 204, 113)
         pdf.cell(30, 10, txt=txt("أرباح 25 سنة:"), align='R')
         pdf.cell(w_savings, 10, txt="", fill=True)
-        pdf.cell(30, 10, txt=f"{fmt(sum(cash_flow))} SAR", ln=True)
+        pdf.cell(30, 10, txt=f"{fmt(sum(cash_flow))}", ln=True)
         
-        # 4. Recommendation (Cleaned Text)
         pdf.ln(10)
-        # تنظيف النص من الإيموجي والنجوم لتجنب الخطأ
         clean_advice = advice.replace('🚀', '').replace('✅', '').replace('⚠️', '').replace('🤖', '').replace('**', '')
         pdf.set_text_color(0, 100, 0)
         pdf.multi_cell(190, 6, txt=txt("توصية المستشار: " + clean_advice), border=1, align='R')
 
         return pdf.output(dest='S').encode('latin-1')
 
-    st.download_button(t["download_pdf"], create_pdf(), "Solar_Platinum_Report.pdf", "application/pdf", type="primary")
+    st.download_button(t["download_pdf"], create_pdf(), "Solar_Proposal.pdf", "application/pdf", type="primary")
 
 else:
     st.info("النظام جاهز. ابدأ بتحديد الموقع على الخريطة.")
