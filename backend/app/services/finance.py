@@ -116,9 +116,7 @@ def analyze(
         if year == 1:
             result.first_year_savings_sar = savings
             result.first_year_bill_before_sar = balance.total("bill_before_sar")
-            result.first_year_bill_after_sar = balance.total("bill_after_sar") - balance.total(
-                "export_credit_sar"
-            )
+            result.first_year_bill_after_sar = balance.total("payable_sar")
         result.rows.append(
             YearRow(
                 year=year,

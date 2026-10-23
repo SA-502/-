@@ -74,6 +74,25 @@ def test_net_billing_surplus_is_exported_at_export_rate():
     assert month.exported_kwh == pytest.approx(240)
     assert month.export_credit_sar == pytest.approx(240 * 0.07)
     assert month.bill_after_sar == pytest.approx(120 * 0.18 * 1.15)
+    # الرصيد (16.8) أقل من الفاتورة (24.84) فيُخصم كاملًا
+    assert month.credit_applied_sar == pytest.approx(240 * 0.07)
+    assert month.savings_sar == pytest.approx(240 * 0.18 * 1.15 - (120 * 0.18 * 1.15 - 240 * 0.07))
+
+
+def test_export_credit_never_makes_bill_negative_and_carries_over():
+    flat = [1 / 24] * 24
+    # الشهر الأول فائض كبير، والشهور التالية بلا إنتاج
+    cons = [240.0] * 12
+    pv = [[0.0] * 12 + [200.0] * 12] + [[0.0] * 24 for _ in range(11)]
+    year = net_billing_year(cons, pv, RES, flat)
+    first, second = year.months[0], year.months[1]
+    earned = (2400 - 120) * 0.07
+    assert first.export_credit_sar == pytest.approx(earned)
+    assert first.payable_sar == pytest.approx(0)
+    assert second.credit_applied_sar == pytest.approx(second.bill_after_sar)
+    assert all(m.payable_sar >= -1e-9 for m in year.months)
+    used = year.total("credit_applied_sar")
+    assert used + year.expired_credit_sar == pytest.approx(earned)
 
 
 def test_net_billing_scales():

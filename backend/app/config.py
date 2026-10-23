@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     admin_email: str = "admin@example.com"
     admin_password: str = "change-me"
     admin_name: str = "مدير النظام"
+    # مكونات وبنود أسعار للتجربة عند أول تشغيل (تُوقف من شاشة المكونات)
+    seed_samples: bool = True
 
     # بيانات الشركة في التقرير
     company_name: str = "طاقات بديلة"

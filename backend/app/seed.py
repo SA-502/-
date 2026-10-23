@@ -100,5 +100,5 @@ if __name__ == "__main__":
     from app.db import SessionLocal
 
     with SessionLocal() as session:
-        seed(session)
+        seed(session, with_samples=get_settings().seed_samples)
     print("seed done")

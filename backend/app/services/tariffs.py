@@ -104,21 +104,25 @@ class MonthBalance:
     imported_kwh: float
     exported_kwh: float
     bill_before_sar: float
-    bill_after_sar: float
-    export_credit_sar: float
+    bill_after_sar: float  # فاتورة الطاقة المستوردة قبل خصم الرصيد
+    export_credit_sar: float  # رصيد مكتسب من الفائض هذا الشهر
+    credit_applied_sar: float = 0.0  # ما خُصم فعلًا من الفاتورة (من رصيد هذا الشهر والأشهر السابقة)
+
+    @property
+    def payable_sar(self) -> float:
+        return self.bill_after_sar - self.credit_applied_sar
 
     @property
     def savings_sar(self) -> float:
-        return self.bill_before_sar - self.bill_after_sar + self.export_credit_sar
+        return self.bill_before_sar - self.payable_sar
 
 
 @dataclass
 class YearBalance:
     months: list[MonthBalance] = field(default_factory=list)
+    expired_credit_sar: float = 0.0
 
     def total(self, attr: str) -> float:
-        if attr == "savings_sar":
-            return sum(m.savings_sar for m in self.months)
         return sum(getattr(m, attr) for m in self.months)
 
 
@@ -135,6 +139,7 @@ def net_billing_year(
     consumption_kwh: الاستهلاك الشهري (12 قيمة).
     production_matrix_kwh: إنتاج كل شهر موزعًا على ساعات اليوم المحلية (12 × 24).
     الاستهلاك الذاتي يُحسب ساعة بساعة على يوم متوسط في الشهر؛ الفائض يُصدَّر بسعر التصدير.
+    رصيد الفائض يُخصم من الفاتورة فقط (لا يُصرف نقدًا) ويُرحَّل للأشهر التالية، وما يتبقى آخر السنة يسقط.
     production_scale و tariff_scale لتطبيق التدهور وزيادة التعرفة في السنوات اللاحقة.
     """
     if len(consumption_kwh) != 12 or len(production_matrix_kwh) != 12:
@@ -142,6 +147,7 @@ def net_billing_year(
     if len(profile) != 24:
         raise ValueError("load profile needs 24 hourly values")
     year = YearBalance()
+    credit_balance = 0.0
     for month, cons in enumerate(consumption_kwh):
         self_used = exported = produced = 0.0
         for hour in range(24):
@@ -154,6 +160,10 @@ def net_billing_year(
         imported = cons - self_used
         before = monthly_bill(cons, tariff) * tariff_scale
         after = monthly_bill(imported, tariff) * tariff_scale
+        earned = exported * tariff.export_rate_sar * tariff_scale
+        credit_balance += earned
+        applied = min(credit_balance, after)
+        credit_balance -= applied
         year.months.append(
             MonthBalance(
                 consumption_kwh=cons,
@@ -163,7 +173,9 @@ def net_billing_year(
                 exported_kwh=exported,
                 bill_before_sar=before,
                 bill_after_sar=after,
-                export_credit_sar=exported * tariff.export_rate_sar * tariff_scale,
+                export_credit_sar=earned,
+                credit_applied_sar=applied,
             )
         )
+    year.expired_credit_sar = credit_balance
     return year

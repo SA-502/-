@@ -235,7 +235,10 @@ def financial_study(db: Session, sim: Simulation, finance_in: dict, language: st
     financial = asdict(result)
     financial["params"] = finance_in
     financial["tariff"] = {"code": tariff.code, "name": db.get(TariffRow, tariff.code).name, "tiers": [asdict(t) for t in tariff.tiers], "vat": tariff.vat, "export_rate_sar": tariff.export_rate_sar}
-    financial["first_year_months"] = [asdict(m) | {"savings_sar": m.savings_sar} for m in first_year.months]
+    financial["first_year_months"] = [
+        asdict(m) | {"savings_sar": m.savings_sar, "payable_sar": m.payable_sar} for m in first_year.months
+    ]
+    financial["first_year_expired_credit_sar"] = first_year.expired_credit_sar
     quote_dict = quote.to_dict()
     quote_dict["capex_sar"] = round(capex, 2)
     for line in quote_dict["lines"]:

@@ -114,7 +114,7 @@
       <td>{{ months[loop.index0] }}</td>
       <td class="n num">{{ m.production_kwh|num }}</td><td class="n num">{{ m.consumption_kwh|num }}</td>
       <td class="n num">{{ m.self_consumed_kwh|num }}</td><td class="n num">{{ m.exported_kwh|num }}</td>
-      <td class="n num">{{ m.bill_before_sar|num }}</td><td class="n num">{{ m.bill_after_sar|num }}</td><td class="n num">{{ m.savings_sar|num }}</td>
+      <td class="n num">{{ m.bill_before_sar|num }}</td><td class="n num">{{ m.payable_sar|num }}</td><td class="n num">{{ m.savings_sar|num }}</td>
     </tr>
   {% endfor %}
   </tbody>
@@ -125,7 +125,7 @@
     <td class="n num">{{ fin.first_year_months|sum(attribute="self_consumed_kwh")|num }}</td>
     <td class="n num">{{ fin.first_year_months|sum(attribute="exported_kwh")|num }}</td>
     <td class="n num">{{ fin.first_year_months|sum(attribute="bill_before_sar")|num }}</td>
-    <td class="n num">{{ fin.first_year_months|sum(attribute="bill_after_sar")|num }}</td>
+    <td class="n num">{{ fin.first_year_months|sum(attribute="payable_sar")|num }}</td>
     <td class="n num">{{ fin.first_year_months|sum(attribute="savings_sar")|num }}</td>
   </tr></tfoot>
 </table>

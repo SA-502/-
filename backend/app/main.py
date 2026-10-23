@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,6 +14,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if get_settings().jwt_secret == "change-me-in-production":
+    logging.getLogger("uvicorn.error").warning("SOLAR_JWT_SECRET غير مضبوط؛ اضبطه قبل التشغيل الفعلي")
 
 for module in (auth, customers, projects, designs, catalog, simulations, geocode):
     app.include_router(module.router, prefix="/api")

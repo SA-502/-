@@ -1,0 +1,58 @@
+# التشغيل: انسخ .env.example إلى .env وعدّل القيم، ثم: docker compose up -d --build
+name: solar-designer
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: solar
+      POSTGRES_USER: solar
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?ضع DB_PASSWORD في ملف .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solar -d solar"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SOLAR_DATABASE_URL: postgresql+psycopg://solar:${DB_PASSWORD}@db:5432/solar
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+
+  # نسخة احتياطية يومية لقاعدة البيانات مع الاحتفاظ بآخر 14 نسخة
+  backup:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        while true; do
+          pg_dump -h db -U solar -d solar -Fc -f /backups/solar-$$(date +%Y%m%d-%H%M).dump && echo "backup ok"
+          ls -1t /backups/solar-*.dump | tail -n +15 | xargs -r rm --
+          sleep 86400
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
