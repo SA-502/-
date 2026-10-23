@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ t.dir }}">
+<head>
+<meta charset="utf-8">
+<title>{{ t.title }} — {{ project.name }}</title>
+<style>
+  @font-face { font-family: "Report Latin"; src: url("fonts/noto-sans-latin-400-normal.ttf"); font-weight: 400; }
+  @font-face { font-family: "Report Latin"; src: url("fonts/noto-sans-latin-700-normal.ttf"); font-weight: 700; }
+  @font-face { font-family: "Report Arabic"; src: url("fonts/noto-sans-arabic-arabic-400-normal.ttf"); font-weight: 400; }
+  @font-face { font-family: "Report Arabic"; src: url("fonts/noto-sans-arabic-arabic-700-normal.ttf"); font-weight: 700; }
+
+  @page {
+    size: A4;
+    margin: 16mm 14mm 18mm 14mm;
+    @bottom-center { content: "{{ t.page }} " counter(page) " / " counter(pages); font-family: "Report Latin", "Report Arabic"; font-size: 8.5pt; color: #6b7280; }
+    @bottom-left { content: "{{ company.company_name }}"; font-family: "Report Latin", "Report Arabic"; font-size: 8.5pt; color: #6b7280; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "Report Latin", "Report Arabic", sans-serif; font-size: 9.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+  h1 { font-size: 18pt; margin: 0; color: #0f172a; }
+  h2 { font-size: 12.5pt; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #f59e0b; color: #0f172a; }
+  .muted { color: #6b7280; }
+  .num { direction: ltr; unicode-bidi: isolate; white-space: nowrap; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid #e5e7eb; }
+  header .company { font-weight: 700; font-size: 11pt; }
+  header img { max-height: 48px; }
+  .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 18px; margin: 12px 0; }
+  .meta .lbl { display: block; font-size: 8pt; color: #6b7280; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+  .kpi { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 10px; }
+  .kpi .lbl { display: block; font-size: 8pt; color: #6b7280; }
+  .kpi b { font-size: 12pt; }
+  .kpi.hl { background: #fffbeb; border-color: #fcd34d; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  th, td { padding: 4px 6px; border-bottom: 1px solid #e5e7eb; text-align: start; vertical-align: top; }
+  th { background: #f8fafc; font-size: 8.5pt; color: #374151; }
+  td.n, th.n { text-align: end; }
+  tfoot td { font-weight: 700; border-top: 1.5px solid #1f2937; }
+  .totals td { border: none; padding: 2px 6px; }
+  .totals tr.grand td { font-weight: 700; font-size: 11pt; border-top: 1.5px solid #1f2937; padding-top: 6px; }
+  .lossbar { height: 9px; margin-top: 5px; background: #dc2626; opacity: .75; border-radius: 2px; }
+  figure { margin: 6px 0; }
+  svg { width: 100%; height: auto; }
+  .break { break-before: page; }
+  .avoid { break-inside: avoid; }
+  ul.notes { padding-inline-start: 18px; margin: 4px 0; }
+  ul.notes li { margin-bottom: 3px; }
+  .small { font-size: 8pt; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="company">{{ company.company_name }}</div>
+    <div class="muted small">{{ company.company_address }}{% if company.company_phone %} · <span class="num">{{ company.company_phone }}</span>{% endif %}{% if company.company_email %} · {{ company.company_email }}{% endif %}</div>
+  </div>
+  {% if logo %}<img src="{{ logo }}" alt="">{% endif %}
+</header>
+
+<h1 style="margin-top:14px">{{ t.title }}</h1>
+<div class="meta">
+  <div><span class="lbl">{{ t.customer }}</span>{{ customer.name }}{% if customer.phone %} · <span class="num">{{ customer.phone }}</span>{% endif %}</div>
+  <div><span class="lbl">{{ t.project }}</span>{{ project.name }}</div>
+  <div><span class="lbl">{{ t.location }}</span>{{ project.city or "" }} <span class="num">({{ "%.5f"|format(location.lat) }}, {{ "%.5f"|format(location.lon) }})</span></div>
+  <div><span class="lbl">{{ t.report_no }}</span><span class="num">Q-{{ "%05d"|format(report.id) }}</span></div>
+  <div><span class="lbl">{{ t.date }}</span><span class="num">{{ issued.strftime("%Y-%m-%d") }}</span> · {{ t.valid_until }} <span class="num">{{ valid_until.strftime("%Y-%m-%d") }}</span></div>
+  <div><span class="lbl">{{ t.prepared_by }}</span>{{ user.name }}</div>
+</div>
+
+<h2>{{ t.summary }}</h2>
+<div class="kpis">
+  <div class="kpi"><span class="lbl">{{ t.system_size }}</span><b class="num">{{ totals.dc_kwp|num(2) }} kWp</b></div>
+  <div class="kpi"><span class="lbl">{{ t.modules }}</span><b class="num">{{ totals.module_count|num }}</b></div>
+  <div class="kpi"><span class="lbl">{{ t.annual_energy }}</span><b class="num">{{ results.annual_energy_kwh|num }} kWh</b></div>
+  <div class="kpi"><span class="lbl">{{ t.specific_yield }}</span><b class="num">{{ results.specific_yield_kwh_kwp|num }} kWh/kWp</b></div>
+  <div class="kpi hl"><span class="lbl">{{ t.total_price }}</span><b class="num">{{ quote.capex_sar|num }} {{ t.sar }}</b></div>
+  <div class="kpi hl"><span class="lbl">{{ t.first_year_savings }}</span><b class="num">{{ fin.first_year_savings_sar|num }} {{ t.sar }}</b></div>
+  <div class="kpi hl"><span class="lbl">{{ t.payback }}</span><b>{% if fin.payback_years %}<span class="num">{{ fin.payback_years|num(1) }}</span> {{ t.years }}{% else %}{{ t.not_reached }}{% endif %}</b></div>
+  <div class="kpi"><span class="lbl">{{ t.coverage }}</span><b class="num">{{ coverage_pct|num }}%</b></div>
+</div>
+
+<h2>{{ t.design }}</h2>
+<figure class="avoid">{{ plan }}</figure>
+<table>
+  <thead><tr><th>{{ t.area }}</th><th class="n">m²</th><th class="n">{{ t.modules }}</th><th class="n">kWp</th><th class="n">{{ t.tilt }}</th><th class="n">{{ t.azimuth }}</th></tr></thead>
+  <tbody>
+  {% for row in area_rows %}
+    <tr><td>{{ row.name }}</td><td class="n num">{{ row.area_m2|num }}</td><td class="n num">{{ row.modules }}</td><td class="n num">{{ row.kwp|num(2) }}</td><td class="n num">{{ row.tilt|num }}°</td><td class="n num">{{ row.azimuth|num }}°</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<table class="avoid">
+  <thead><tr><th colspan="2">{{ t.components }}</th></tr></thead>
+  <tbody>
+  {% for m in modules %}
+    <tr><td>{{ t.module }}</td><td>{{ m.manufacturer }} {{ m.model }} — <span class="num">{{ m.specs.power_w }} W</span></td></tr>
+  {% endfor %}
+    <tr><td>{{ t.inverter }}</td><td>{% if design.inverter %}{{ design.inverter.manufacturer }} {{ design.inverter.model }} (<span class="num">{{ design.inverter.specs.ac_power_kw }} kW</span>) · {{ t.count }} <span class="num">{{ design.inverter_count }}</span>{% else %}{{ t.not_selected }}{% endif %}</td></tr>
+    <tr><td>{{ t.dc_ac }}</td><td class="num">{{ dc_ac|num(2) }}</td></tr>
+  </tbody>
+</table>
+
+<h2 class="break">{{ t.production }}</h2>
+<figure>{{ monthly_chart }}</figure>
+<table>
+  <thead><tr>
+    <th>{{ t.month }}</th><th class="n">{{ t.produced }}</th><th class="n">{{ t.consumed }}</th><th class="n">{{ t.self_used }}</th>
+    <th class="n">{{ t.exported }}</th><th class="n">{{ t.bill_before }}</th><th class="n">{{ t.bill_after }}</th><th class="n">{{ t.savings }}</th>
+  </tr></thead>
+  <tbody>
+  {% for m in fin.first_year_months %}
+    <tr>
+      <td>{{ months[loop.index0] }}</td>
+      <td class="n num">{{ m.production_kwh|num }}</td><td class="n num">{{ m.consumption_kwh|num }}</td>
+      <td class="n num">{{ m.self_consumed_kwh|num }}</td><td class="n num">{{ m.exported_kwh|num }}</td>
+      <td class="n num">{{ m.bill_before_sar|num }}</td><td class="n num">{{ m.bill_after_sar|num }}</td><td class="n num">{{ m.savings_sar|num }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr>
+    <td>{{ t.total }}</td>
+    <td class="n num">{{ fin.first_year_months|sum(attribute="production_kwh")|num }}</td>
+    <td class="n num">{{ fin.first_year_months|sum(attribute="consumption_kwh")|num }}</td>
+    <td class="n num">{{ fin.first_year_months|sum(attribute="self_consumed_kwh")|num }}</td>
+    <td class="n num">{{ fin.first_year_months|sum(attribute="exported_kwh")|num }}</td>
+    <td class="n num">{{ fin.first_year_months|sum(attribute="bill_before_sar")|num }}</td>
+    <td class="n num">{{ fin.first_year_months|sum(attribute="bill_after_sar")|num }}</td>
+    <td class="n num">{{ fin.first_year_months|sum(attribute="savings_sar")|num }}</td>
+  </tr></tfoot>
+</table>
+<p class="muted small">{{ t.bill_before }}/{{ t.bill_after }}: {{ t.sar }} · kWh</p>
+
+<div class="avoid">
+<h2>{{ t.losses }}</h2>
+<p class="muted small">{{ t.losses_note }} · {{ t.pr }}: <span class="num">{{ (results.performance_ratio * 100)|num(1) }}%</span></p>
+<table>
+  <thead><tr><th>{{ t.step }}</th><th class="n">{{ t.energy_after }}</th><th class="n">{{ t.loss }}</th><th style="width:34%"></th></tr></thead>
+  <tbody>
+  {% for l in results.losses %}
+    <tr>
+      <td>{{ l.label }}</td><td class="n num">{{ l.energy_kwh|num }}</td>
+      <td class="n num">{% if loop.first %}—{% else %}{{ l.loss_pct|num(1) }}%{% endif %}</td>
+      <td>{% if not loop.first and l.loss_pct > 0 %}<div class="lossbar" style="width: {{ (l.loss_pct / max_loss * 100)|round(1) }}%"></div>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 class="break">{{ t.quote }}</h2>
+<table>
+  <thead><tr><th>{{ t.item }}</th><th class="n">{{ t.qty }}</th><th class="n">{{ t.unit_price }}</th><th class="n">{{ t.line_total }}</th></tr></thead>
+  <tbody>
+  {% for line in quote.lines %}
+    <tr><td>{{ line.description }}</td><td class="n"><span class="num">{{ line.quantity|num(2 if line.quantity % 1 else 0) }}</span> {{ line.unit_label }}</td><td class="n num">{{ line.unit_price_sar|num(2) }}</td><td class="n num">{{ line.total_sar|num(2) }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<table class="totals" style="width:50%; margin-inline-start:auto">
+  <tr><td>{{ t.subtotal }}</td><td class="n num">{{ quote.subtotal_sar|num(2) }}</td></tr>
+  {% if quote.discount_sar %}<tr><td>{{ t.discount }} (<span class="num">{{ quote.discount_pct|num(1) }}%</span>)</td><td class="n num">-{{ quote.discount_sar|num(2) }}</td></tr>{% endif %}
+  <tr><td>{{ t.net }}</td><td class="n num">{{ quote.net_sar|num(2) }}</td></tr>
+  <tr><td>{{ t.vat }} (<span class="num">{{ (quote.vat * 100)|num }}%</span>)</td><td class="n num">{{ quote.vat_sar|num(2) }}</td></tr>
+  <tr class="grand"><td>{{ t.grand_total }}</td><td class="n num">{{ quote.total_sar|num(2) }} {{ t.sar }}</td></tr>
+  {% if quote.capex_sar != quote.total_sar %}<tr class="grand"><td>{{ t.total_price }}</td><td class="n num">{{ quote.capex_sar|num(2) }} {{ t.sar }}</td></tr>{% endif %}
+</table>
+
+<h2>{{ t.financial }}</h2>
+<div class="kpis">
+  <div class="kpi"><span class="lbl">{{ t.npv }}</span><b class="num">{{ fin.npv_sar|num }} {{ t.sar }}</b></div>
+  <div class="kpi"><span class="lbl">{{ t.irr }}</span><b class="num">{% if fin.irr is not none %}{{ (fin.irr * 100)|num(1) }}%{% else %}—{% endif %}</b></div>
+  <div class="kpi"><span class="lbl">{{ t.discounted_payback }}</span><b>{% if fin.discounted_payback_years %}<span class="num">{{ fin.discounted_payback_years|num(1) }}</span> {{ t.years }}{% else %}{{ t.not_reached }}{% endif %}</b></div>
+  <div class="kpi"><span class="lbl">{{ t.lcoe }}</span><b class="num">{{ fin.lcoe_sar_per_kwh|num(3) }} {{ t.sar }}/kWh</b></div>
+  <div class="kpi"><span class="lbl">{{ t.lifetime_savings }} (<span class="num">{{ fin.rows|length }}</span> {{ t.years }})</span><b class="num">{{ fin.lifetime_savings_sar|num }} {{ t.sar }}</b></div>
+  <div class="kpi"><span class="lbl">{{ t.roi }}</span><b class="num">{{ fin.roi_pct|num }}%</b></div>
+</div>
+<h2 style="font-size:11pt">{{ t.cashflow }} ({{ t.sar }})</h2>
+<figure class="avoid">{{ cashflow_chart }}</figure>
+
+<table class="small break">
+  <thead><tr><th>{{ t.year }}</th><th class="n">{{ t.produced }} (kWh)</th><th class="n">{{ t.savings }}</th><th class="n">{{ t.om }}</th><th class="n">{{ t.net_cf }}</th><th class="n">{{ t.cumulative }}</th></tr></thead>
+  <tbody>
+  {% for r in fin.rows %}
+    <tr><td class="num">{{ r.year }}</td><td class="n num">{{ r.production_kwh|num }}</td><td class="n num">{{ r.savings_sar|num }}</td><td class="n num">{{ (r.om_sar + r.other_costs_sar)|num }}</td><td class="n num">{{ r.net_cash_flow_sar|num }}</td><td class="n num">{{ r.cumulative_sar|num }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>{{ t.assumptions }}</h2>
+<ul class="notes small">
+  {% for n in notes %}<li>{{ n }}</li>{% endfor %}
+</ul>
+
+</body>
+</html>
