@@ -50,7 +50,7 @@ docker compose exec -T db pg_restore -U solar -d solar --clean < backups/solar-Y
 - **`solar-build`** ([`deploy/hostinger/build-images.yml`](deploy/hostinger/build-images.yml)): يسحب الكود من GitHub (الفرع في `GIT_REF`) ويبني الصورتين `solar-api` و`solar-web` ثم يتوقف.
 - **`solar`** ([`deploy/hostinger/docker-compose.yml`](deploy/hostinger/docker-compose.yml)): قاعدة البيانات والخادم والواجهة والنسخ الاحتياطي. الأسرار في متغيرات المشروع داخل مدير Docker، وليست في المستودع.
 
-**للتحديث بعد أي تعديل على الكود:** من hPanel ← Docker Manager، أعد تشغيل `solar-build` وانتظر `BUILD DONE` في السجلات، ثم أعد تشغيل `solar`.
+**للتحديث بعد أي تعديل على الكود:** من hPanel ← Docker Manager، أعد تشغيل `solar-build` وانتظر `BUILD DONE` في السجلات، ثم أعد نشر `solar` (زر النشر/التحديث، وليس إعادة التشغيل، حتى تُنشأ الحاويات من الصور الجديدة).
 
 الخادم يحتاج الوصول إلى `re.jrc.ec.europa.eu` (PVGIS) و`server.arcgisonline.com` (الصور) و`nominatim.openstreetmap.org` (البحث عن العناوين). بيانات الطقس تُحفظ لكل موقع (دقة ≈ 1 كم) فلا تُطلب مرتين.
 
