@@ -43,6 +43,15 @@ docker compose exec -T db pg_restore -U solar -d solar --clean < backups/solar-Y
 
 للنطاق مع HTTPS ضع التطبيق خلف الـ reverse proxy الموجود (مثل Nginx أو Traefik بجانب n8n) ووجّهه إلى المنفذ `WEB_PORT`.
 
+### النشر الحالي على Hostinger VPS
+
+التطبيق منشور على `https://solar.srv2082532.hstgr.cloud` عبر مدير Docker في hPanel، خلف Traefik الخاص بـ n8n. مدير Docker لا يبني الصور، لذلك فيه مشروعان:
+
+- **`solar-build`** ([`deploy/hostinger/build-images.yml`](deploy/hostinger/build-images.yml)): يسحب الكود من GitHub (الفرع في `GIT_REF`) ويبني الصورتين `solar-api` و`solar-web` ثم يتوقف.
+- **`solar`** ([`deploy/hostinger/docker-compose.yml`](deploy/hostinger/docker-compose.yml)): قاعدة البيانات والخادم والواجهة والنسخ الاحتياطي. الأسرار في متغيرات المشروع داخل مدير Docker، وليست في المستودع.
+
+**للتحديث بعد أي تعديل على الكود:** من hPanel ← Docker Manager، أعد تشغيل `solar-build` وانتظر `BUILD DONE` في السجلات، ثم أعد تشغيل `solar`.
+
 الخادم يحتاج الوصول إلى `re.jrc.ec.europa.eu` (PVGIS) و`server.arcgisonline.com` (الصور) و`nominatim.openstreetmap.org` (البحث عن العناوين). بيانات الطقس تُحفظ لكل موقع (دقة ≈ 1 كم) فلا تُطلب مرتين.
 
 ## التطوير محليًا
