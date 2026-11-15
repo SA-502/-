@@ -1,4 +1,5 @@
-# نشر على VPS في Hostinger بجانب n8n: يبني الصور من GitHub مباشرة، ويمر عبر Traefik الموجود
+# نشر على VPS في Hostinger بجانب n8n عبر Traefik الموجود. الصورتان solar-api وsolar-web
+# يبنيهما المشروع المساعد build-images.yml على السيرفر (مدير Docker لا يبني الصور)
 # (شبكة n8n_default وشهادة mytlschallenge). المتغيرات من بيئة المشروع في مدير Docker:
 #   SITE_HOST, GIT_REF, DB_PASSWORD, SOLAR_JWT_SECRET, SOLAR_ADMIN_EMAIL, SOLAR_ADMIN_PASSWORD
 services:
@@ -18,6 +19,7 @@ services:
       retries: 30
 
   api:
+    image: solar-api:latest
     build: https://github.com/SA-502/-.git#${GIT_REF:-main}:backend
     restart: unless-stopped
     environment:
@@ -32,6 +34,7 @@ services:
         condition: service_healthy
 
   web:
+    image: solar-web:latest
     build: https://github.com/SA-502/-.git#${GIT_REF:-main}:frontend
     restart: unless-stopped
     depends_on:

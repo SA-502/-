@@ -1,0 +1,21 @@
+# مشروع مساعد في مدير Docker: يبني صورتي solar-api وsolar-web على السيرفر نفسه من GitHub،
+# لأن مدير Docker في Hostinger لا يبني الصور. شغّله (أو أعد تشغيله) قبل نشر/تحديث مشروع solar.
+# المتغير: GIT_REF (الفرع)
+services:
+  build:
+    image: docker:27-cli
+    restart: "no"
+    environment:
+      GIT_REF: ${GIT_REF:-main}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        apk add --no-cache git >/dev/null
+        rm -rf /src && git clone --depth 1 -b "$$GIT_REF" https://github.com/SA-502/-.git /src
+        echo "building $$(git -C /src rev-parse --short HEAD)"
+        docker build -t solar-api:latest /src/backend
+        docker build -t solar-web:latest /src/frontend
+        echo "BUILD DONE"
