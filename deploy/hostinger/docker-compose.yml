@@ -1,0 +1,77 @@
+# نشر على VPS في Hostinger بجانب n8n: يبني الصور من GitHub مباشرة، ويمر عبر Traefik الموجود
+# (شبكة n8n_default وشهادة mytlschallenge). المتغيرات من بيئة المشروع في مدير Docker:
+#   SITE_HOST, GIT_REF, DB_PASSWORD, SOLAR_JWT_SECRET, SOLAR_ADMIN_EMAIL, SOLAR_ADMIN_PASSWORD
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: solar
+      POSTGRES_USER: solar
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - solar_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solar -d solar"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build: https://github.com/SA-502/-.git#${GIT_REF:-main}:backend
+    restart: unless-stopped
+    environment:
+      SOLAR_DATABASE_URL: postgresql+psycopg://solar:${DB_PASSWORD}@db:5432/solar
+      SOLAR_JWT_SECRET: ${SOLAR_JWT_SECRET}
+      SOLAR_ADMIN_EMAIL: ${SOLAR_ADMIN_EMAIL}
+      SOLAR_ADMIN_PASSWORD: ${SOLAR_ADMIN_PASSWORD}
+      SOLAR_CORS_ORIGINS: '["https://${SITE_HOST}"]'
+      SOLAR_COMPANY_NAME: ${SOLAR_COMPANY_NAME:-طاقات بديلة}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: https://github.com/SA-502/-.git#${GIT_REF:-main}:frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - default
+      - n8n_default
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=n8n_default
+      - traefik.http.services.solar.loadbalancer.server.port=80
+      - traefik.http.routers.solar.rule=Host(`${SITE_HOST}`)
+      - traefik.http.routers.solar.entrypoints=web,websecure
+      - traefik.http.routers.solar.tls=true
+      - traefik.http.routers.solar.tls.certresolver=mytlschallenge
+
+  # نسخة احتياطية يومية مع الاحتفاظ بآخر 14 نسخة
+  backup:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - solar_backups:/backups
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        while true; do
+          pg_dump -h db -U solar -d solar -Fc -f /backups/solar-$$(date +%Y%m%d-%H%M).dump && echo "backup ok"
+          ls -1t /backups/solar-*.dump | tail -n +15 | xargs -r rm --
+          sleep 86400
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  n8n_default:
+    external: true
+
+volumes:
+  solar_db:
+  solar_backups:
