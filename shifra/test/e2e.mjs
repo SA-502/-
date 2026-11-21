@@ -6,11 +6,11 @@ import { mkdirSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 const { chromium, devices } = require('playwright');
 const PORT = 3123;
-const BASE = `http://127.0.0.1:${PORT}`;
+const BASE = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
 const SHOTS = process.env.SHOTS_DIR || 'test/screenshots';
 mkdirSync(SHOTS, { recursive: true });
 
-const srv = spawn(process.execPath, ['server/index.js'], { env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1' }, stdio: 'inherit' });
+const srv = process.env.BASE_URL ? { kill() {} } : spawn(process.execPath, ['server/index.js'], { env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1' }, stdio: 'inherit' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 for (let i = 0; i < 50; i++) { try { await fetch(BASE + '/health'); break; } catch { await sleep(100); } }
 
