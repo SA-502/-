@@ -21,21 +21,23 @@ npm test             # اختبارات القواعد
 npm run e2e          # لعبة كاملة بـ 4 متصفحات (يحتاج Playwright)
 ```
 
-## النشر على Hostinger VPS
-1. من **hPanel ← VPS**: اختر نظام **Ubuntu 24.04** وخذ عنوان الـ IP.
-2. من **Domains ← DNS**: أضف سجل `A` للدومين (`@` و `www`) يشير لـ IP السيرفر.
-3. ادخل السيرفر: `ssh root@IP`
-4. شغّل السكربت (مرة وحدة):
+## النشر على Hostinger VPS (أمر واحد)
+1. من **hPanel ← VPS**: تأكد إن النظام **Ubuntu 22.04 أو 24.04**.
+2. افتح **Browser terminal** (زر في صفحة الـ VPS) أو ادخل بـ `ssh root@IP`.
+3. الصق هذا الأمر:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/<USER>/<REPO>/<BRANCH>/shifra/deploy/setup-vps.sh -o setup.sh
-   bash setup.sh yourdomain.com https://github.com/<USER>/<REPO>.git <BRANCH>
+   curl -fsSL https://raw.githubusercontent.com/SA-502/-/claude/epic-cori-sy41vu/shifra/deploy/setup-vps.sh -o setup.sh && bash setup.sh
    ```
-   > لو الريبو خاص، انسخ الكود للسيرفر بـ `git clone` باستخدام توكن أو مفتاح SSH، أو ارفعه بـ `scp`.
-5. افتح `https://yourdomain.com` — اللعبة شغالة 24 ساعة، و PM2 يرجعها تلقائياً بعد أي إعادة تشغيل.
+   - بدون دومين: اللعبة تفتح على `http://IP-السيرفر`.
+   - مع دومين: أضف سجل `A` للدومين (`@` و `www`) يأشر على IP السيرفر، وبعدين شغّل `bash setup.sh yourdomain.com` (يطلع HTTPS تلقائياً).
+4. اللعبة شغالة 24 ساعة، و PM2 يرجعها تلقائياً بعد أي إعادة تشغيل.
+
+### بديل: Docker
+فيه `Dockerfile` و `docker-compose.yml` جاهزين: `docker compose up -d --build` داخل مجلد `shifra` (اللعبة على المنفذ 80).
 
 ### التحديث لاحقاً
 ```bash
-cd /opt/shifra-repo && git pull && cd shifra && npm ci --omit=dev && pm2 reload shifra
+bash setup.sh            # نفس الأمر يحدّث الكود ويعيد التشغيل (أو: bash setup.sh yourdomain.com)
 ```
 
 ### أوامر مفيدة
