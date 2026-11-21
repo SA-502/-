@@ -12,7 +12,7 @@ mkdirSync(SHOTS, { recursive: true });
 
 const srv = process.env.BASE_URL ? { kill() {} } : spawn(process.execPath, ['server/index.js'], { env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1' }, stdio: 'inherit' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-for (let i = 0; i < 50; i++) { try { await fetch(BASE + '/health'); break; } catch { await sleep(100); } }
+if (!process.env.BASE_URL) for (let i = 0; i < 50; i++) { try { await fetch(BASE + '/health'); break; } catch { await sleep(100); } }
 
 const browser = await chromium.launch();
 const phone = devices['iPhone 13'];
@@ -98,8 +98,8 @@ try {
   await others[0].page.screenshot({ path: `${SHOTS}/05-game-over.png`, fullPage: true });
 
   // QR
-  const qr = await fetch(url.replace('/r/', '/qr/') + '.svg');
-  if (!qr.ok || !(await qr.text()).includes('<svg')) throw new Error('QR فشل');
+  const qrOk = await host.page.evaluate(async (u) => { const r = await fetch(u); return r.ok && (await r.text()).includes('<svg'); }, url.replace('/r/', '/qr/') + '.svg');
+  if (!qrOk) throw new Error('QR فشل');
   console.log('✅ QR يعمل');
 
   // إعادة الاتصال: إعادة تحميل الصفحة ترجع نفس اللاعب
